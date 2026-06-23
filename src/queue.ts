@@ -91,7 +91,7 @@ export class MessageQueue {
           const message =
             error instanceof Error ? error.message : String(error);
           process.stderr.write(
-            `[notifygram] Failed to send message: ${message}\n`
+            `[notifygram] Failed to send operation: ${message}\n`
           );
           // Logging must not crash the host application.
         } finally {

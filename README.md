@@ -6,9 +6,10 @@
 
 - **Пять уровней уведомлений** — `message`, `info`, `warning`, `error`, `fatal`, с опциональным фильтром `minLevel`.
 - **Расширенный формат сообщений** — каждое уведомление включает имя сервиса, окружение и имя хоста; для `Error` в `error` / `fatal` дополнительно добавляется stack trace в формате HTML.
-- **Ограничение частоты отправки** — исходящие сообщения ставятся в очередь и отправляются не чаще одного раза в секунду, чтобы не превышать лимиты Telegram.
+- **Кастомные rich-сообщения** — `custom()` может отправлять структурированные уведомления с заголовком, телом и полями.
+- **Ограничение частоты отправки** — исходящие операции ставятся в очередь и выполняются не чаще одного раза в секунду, чтобы не превышать лимиты Telegram.
 - **Дедупликация ошибок** — повторяющиеся сообщения `error` / `fatal` с одинаковым текстом (или `Error.name:message`) в течение 60 секунд объединяются в одно уведомление со счётчиком повторов.
-- **Корректное завершение** — `flush()` опустошает буфер дедупликации и ожидает доставки всех сообщений из очереди.
+- **Корректное завершение** — `flush()` опустошает буфер дедупликации и ожидает выполнения всех операций из очереди.
 
 ## Установка
 
@@ -53,13 +54,33 @@ await notifygram.warning("Disk usage above 80%");
 await notifygram.error(new Error("DB connection failed"));
 await notifygram.fatal(new Error("Unrecoverable error"));
 
-// Дождитесь отправки всех сообщений перед завершением
+// Дождитесь выполнения всех операций перед завершением
 await notifygram.flush();
 ```
 
+### Кастомные сообщения
+
+`custom()` поддерживает обычные сообщения и rich payload для структурированных уведомлений.
+
+```ts
+await notifygram.custom("Manual notification");
+
+await notifygram.custom({
+  kind: "rich",
+  title: "Payment failed",
+  body: "User payment was declined",
+  fields: [
+    { label: "Service", value: "payments" },
+    { label: "Amount", value: "$49" },
+  ],
+});
+```
+
+Rich-сообщения форматируются как HTML и отправляются через ту же очередь, поэтому для коротких скриптов их тоже нужно завершать через `flush()`.
+
 ### Когда вызывать `flush()`
 
-Логирование асинхронное: сообщения проходят через очередь, а `error` / `fatal` ждут до 2 секунд для дедупликации перед постановкой в очередь.
+Логирование асинхронное: отправка проходит через очередь операций, а `error` / `fatal` ждут до 2 секунд для дедупликации перед постановкой в очередь.
 
 | Сценарий | Нужен `flush()`? |
 |----------|------------------|
@@ -128,14 +149,16 @@ await notifygram.error("DB failed");     // отправится
 - `notifygram.warning(message: string | Error)`
 - `notifygram.error(message: string | Error)`
 - `notifygram.fatal(message: string | Error)`
-- `notifygram.flush()` — немедленно сбросить буфер дедупликации и дождаться отправки всех сообщений из очереди в Telegram
+- `notifygram.custom(message: string | Error)`
+- `notifygram.custom(payload: RichMessagePayload)`
+- `notifygram.flush()` — немедленно сбросить буфер дедупликации и дождаться выполнения всех операций из очереди в Telegram
 
 ### Экспорты
 
 - `createNotifygram(options?)` — фабрика экземпляра `Notifygram`.
 - `Notifygram` — класс логгера.
 - `ConfigError`, `TelegramApiError`, `TelegramNetworkError` — ошибки, полезные для обработки сбоев конфигурации и Telegram API.
-- `LogLevel`, `NotifygramMessage`, `NotifygramOptions` — публичные типы библиотеки.
+- `LogLevel`, `NotifygramMessage`, `NotifygramOptions`, `RichMessageField`, `RichMessagePayload` — публичные типы библиотеки.
 
 ## Переменные окружения
 

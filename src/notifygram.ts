@@ -2,6 +2,12 @@ import os from "node:os";
 import { loadConfig, loadProjectEnv } from "./config.js";
 import { formatMessage } from "./formatter.js";
 import { MessageQueue } from "./queue.js";
+import {
+  RichMessageCommand,
+  TextMessageCommand,
+  type RichMessagePayload,
+  type TelegramSendCommand,
+} from "./send-command.js";
 import { TelegramApi } from "./telegram.js";
 import type { LogLevel, NotifygramMessage, NotifygramOptions } from "./types.js";
 import { isErrorObject } from "./types.js";
@@ -45,7 +51,7 @@ interface DedupState {
 
 /** Логгер: форматирует сообщения и отправляет их в Telegram. */
 export class Notifygram {
-  /** Очередь исходящих сообщений в Telegram. */
+  /** Очередь исходящих операций отправки в Telegram. */
   private readonly queue: MessageQueue;
   /** Клиент Telegram API, через который выполняются операции отправки. */
   private readonly telegram: TelegramApi;
@@ -75,8 +81,14 @@ export class Notifygram {
     };
   }
 
-  /** Отправляет кастомное сообщение в Telegram. */
-  custom(message: NotifygramMessage): Promise<void> {
+  /** Отправляет кастомное или расширенное сообщение в Telegram. */
+  custom(message: NotifygramMessage): Promise<void>;
+  custom(message: RichMessagePayload): Promise<void>;
+  custom(message: NotifygramMessage | RichMessagePayload): Promise<void> {
+    if (this.isRichMessagePayload(message)) {
+      return this.send(new RichMessageCommand(message));
+    }
+
     return this.log("message", message);
   }
 
@@ -105,7 +117,7 @@ export class Notifygram {
     return this.logDedup("fatal", message);
   }
 
-  /** Немедленно отправляет буфер дедупликации и всю очередь сообщений. */
+  /** Немедленно отправляет буфер дедупликации и всю очередь операций. */
   async flush(): Promise<void> {
     if (this.dedupState) {
       const state = this.dedupState;
@@ -126,7 +138,7 @@ export class Notifygram {
     }
 
     const text = formatMessage(level, message, this.context);
-    return this.sendFormattedMessage(text);
+    return this.send(new TextMessageCommand(text));
   }
 
   /**
@@ -195,7 +207,7 @@ export class Notifygram {
     }
 
     try {
-      await this.sendFormattedMessage(text);
+      await this.send(new TextMessageCommand(text));
       for (const waiter of state.waiters) {
         waiter.resolve();
       }
@@ -207,15 +219,9 @@ export class Notifygram {
     }
   }
 
-  /** Ставит в очередь обычное HTML-сообщение Telegram. */
-  private sendFormattedMessage(text: string): Promise<void> {
-    return this.queue.enqueue(() =>
-      this.telegram.sendMessage({
-        chatId: this.chatId,
-        text,
-        parseMode: "HTML",
-      })
-    );
+  /** Ставит в очередь команду отправки Telegram. */
+  private send(command: TelegramSendCommand): Promise<void> {
+    return this.queue.enqueue(() => command.send(this.telegram, this.chatId));
   }
 
   /** Строит ключ дедупликации из строки или ошибки. */
@@ -225,6 +231,20 @@ export class Notifygram {
     }
 
     return message;
+  }
+
+  /** Проверяет, является ли payload расширенным сообщением. */
+  private isRichMessagePayload(
+    message: NotifygramMessage | RichMessagePayload
+  ): message is RichMessagePayload {
+    const candidate = message as Partial<RichMessagePayload>;
+
+    return (
+      typeof message === "object" &&
+      message !== null &&
+      candidate.kind === "rich" &&
+      typeof candidate.title === "string"
+    );
   }
 
   /** Проверяет, проходит ли уровень сообщения фильтр minLevel. */
