@@ -1,7 +1,8 @@
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { ConfigError } from "./errors.js";
-import type { AppConfig } from "./types.js";
+
+import type { AppConfig } from "./types/app.js";
 
 const INIT_HINT =
   "Run `npx notifygram init` to discover your channel ID.";

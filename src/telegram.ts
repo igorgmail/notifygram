@@ -1,4 +1,5 @@
 import { TelegramApiError, TelegramNetworkError } from "./errors.js";
+import type { InputRichMessage } from "./telegram-bot-types.js";
 import type {
   GetUpdatesParams,
   SendMessageResult,
@@ -51,6 +52,11 @@ export interface SendMessageParams {
   parseMode: ParseMode;
 }
 
+export interface SendRichMessageParams {
+  chatId: number;
+  richMessage: InputRichMessage;
+}
+
 export class TelegramApi {
   private readonly baseUrl: string;
 
@@ -64,6 +70,16 @@ export class TelegramApi {
       chat_id: params.chatId,
       text: params.text,
       parse_mode: params.parseMode,
+    });
+  }
+
+  /** Отправляет rich-сообщение в чат. */
+  async sendRichMessage(
+    params: SendRichMessageParams
+  ): Promise<TelegramResponse<SendMessageResult>> {
+    return this.requestWithRetry("sendRichMessage", {
+      chat_id: params.chatId,
+      rich_message: params.richMessage,
     });
   }
 

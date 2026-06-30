@@ -1,27 +1,4 @@
-/** Severity level used to filter and format outgoing notifications. */
-export type LogLevel = "message" | "info" | "warning" | "error" | "fatal";
 
-/** Message payload accepted by Notifygram logging methods. */
-export type NotifygramMessage = string | Error;
-
-/** Options added to every notification created by Notifygram. */
-export interface NotifygramOptions {
-  /** Service name shown in the notification metadata. */
-  service?: string;
-  /** Environment name. Defaults to NODE_ENV when omitted. */
-  env?: string;
-  /** Hostname shown in metadata. Defaults to the current OS hostname. */
-  hostname?: string;
-  /** Minimum level to send. Defaults to "message". */
-  minLevel?: LogLevel;
-}
-
-
-/** Runtime configuration loaded from environment variables. */
-export interface AppConfig {
-  token: string;
-  chatId: number;
-}
 
 export interface TelegramUser {
   id: number;
@@ -132,21 +109,3 @@ export interface SendMessageResult {
   message_id: number;
 }
 
-/** Metadata appended to formatted Telegram messages (see formatMeta). */
-export interface FormatContext {
-  /** Service name shown as "Service:" in the message header block. */
-  service?: string;
-  /** Environment name shown as "Environment:" (e.g. production, staging). */
-  env?: string;
-  /** Host identifier shown as "Host:" in the message header block. */
-  hostname?: string;
-}
-
-export interface FormatOptions extends FormatContext {
-  count?: number;
-}
-
-/* Guard */
-export function isErrorObject(value: unknown): value is Error {
-  return value instanceof Error
-}

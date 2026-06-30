@@ -17,14 +17,16 @@ async function main() {
 
   await notifygram.flush();
 }
-await notifygram.message("Test message");
-await notifygram.custom({
-  kind: "rich",
-  title: "Payment failed",
-  body: "User payment was declined",
-  fields: [
-    { label: "Service", value: "payments" },
-    { label: "Amount", value: "$49" },
-  ],
-});
+// await notifygram.message("Test message");
+await notifygram.custom(`
+
+  | Metric | Value |
+  |:-------|------:|
+  | Speed  | **42** <sup>ms</sup> |
+  | Status | <tg-spoiler>ready</tg-spoiler> |
+  
+  [^note]: Footnote with _italic text_ and <u>HTML underline</u>.
+`
+);
 // await main();
+
