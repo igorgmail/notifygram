@@ -88,8 +88,6 @@ export function formatMessage(
   return text;
 }
 
-
-
 /**
  * Преобразует обычный текст в валидную HTML-строку для поля rich_message в Telegram.
  * @param rawText Сырой текст с обычными переносами строк \n

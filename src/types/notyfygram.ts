@@ -11,6 +11,8 @@ export interface INotifygramOptions {
   hostname?: string;
   /** Minimum level to send. Defaults to "message". */
   minLevel?: LogLevel;
+  /** Show service, env, hostname in the notification. Defaults to true. */
+  showContext?: boolean; 
 }
 
 export interface IFormatMessageOptions extends INotifygramOptions {

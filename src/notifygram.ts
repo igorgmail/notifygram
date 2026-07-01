@@ -1,14 +1,13 @@
 import os from "node:os";
 import { loadConfig, loadProjectEnv } from "./config.js";
-import { formatMessage, processMessageForTelegram } from "./formatter.js";
 import { MessageQueue } from "./queue.js";
 import {
-  NotifygramMessage,
   NotifygramNativeMessage,
   NotifygramCustomMessage,
 } from "./messages.js";
 import { TelegramApi } from "./telegram.js";
 
+import type { NotifygramMessage, NotifygramCustomMessageOptions } from "./messages.js";
 import type { LogLevel, INotifygramOptions,  } from "./types/notyfygram.js";
 import { isErrorObject } from "./types/notyfygram.js";
 
@@ -21,6 +20,19 @@ const LEVEL_PRIORITY: Record<LogLevel, number> = {
   error: 4,
   fatal: 5,
 };
+
+function isLogLevel(value: unknown): value is LogLevel {
+  return typeof value === "string" && Object.prototype.hasOwnProperty.call(LEVEL_PRIORITY, value);
+}
+
+function normalizeMinLevel(minLevel: unknown): LogLevel {
+  if (isLogLevel(minLevel)) {
+    return minLevel;
+  }
+
+  console.warn(`[notifygram] Invalid minLevel value: ${String(minLevel)}`);
+  return "custom";
+}
 
 interface DedupWaiter {
   resolve: () => void;
@@ -78,34 +90,31 @@ export class Notifygram {
       service: options.service ?? process.env.SERVICE_NAME ?? "",
       env: options.env ?? process.env.NODE_ENV ?? "",
       hostname: options.hostname ?? os.hostname(),
-      minLevel: options.minLevel ?? "message",
+      minLevel: normalizeMinLevel(options.minLevel),
     };
   }
 
   /** Отправляет кастомное или расширенное сообщение в Telegram. */
-  custom(message: string, options: {mode?: "html" | "markdown"} = {mode: "html"}): Promise<void> {
-
-      const data = processMessageForTelegram(message);
-      return this.log("custom", new NotifygramCustomMessage(data, options));
-
+  custom(
+    message: string,
+    options: NotifygramCustomMessageOptions = { mode: "html" }
+  ): Promise<void> {
+    return this.log("custom", new NotifygramCustomMessage(message, options));
   }
 
   /** Отправляет простое сообщение в Telegram. */
   message(message: string | Error): Promise<void> {
-    const text = formatMessage("message", message, this.context);
-    return this.log("message", new NotifygramNativeMessage(text));
+    return this.log("message", new NotifygramNativeMessage("message", message, this.context));
   }
 
   /** Отправляет информационное сообщение. */
   info(message: string | Error): Promise<void> {
-    const text = formatMessage("info", message, this.context);
-    return this.log("info", new NotifygramNativeMessage(text));
+    return this.log("info", new NotifygramNativeMessage("info", message, this.context));
   }
 
   /** Отправляет предупреждение. */
   warning(message: string | Error): Promise<void> {
-    const text = formatMessage("warning", message, this.context);
-    return this.log("warning", new NotifygramNativeMessage(text));
+    return this.log("warning", new NotifygramNativeMessage("warning", message, this.context));
   }
 
   /** Отправляет ошибку с дедупликацией повторов. */
@@ -133,12 +142,12 @@ export class Notifygram {
   }
 
   /** Записывает сообщение, если его уровень не ниже минимального. */
-  private log(level: LogLevel, message: NotifygramMessage): Promise<void> {
+  private log(level: LogLevel, notifygramMessage: NotifygramMessage): Promise<void> {
     if (!this.shouldLog(level)) {
       return Promise.resolve();
     }
 
-    return this.send(message);
+    return this.send(notifygramMessage);
   }
 
   /** Проверяет, проходит ли уровень сообщения фильтр minLevel. */
@@ -208,17 +217,17 @@ export class Notifygram {
 
   /** Форматирует и ставит в очередь одно сообщение с учётом счётчика повторов. */
   private async flushDedup(state: DedupState): Promise<void> {
-    const text = formatMessage(state.level, state.message, {
-      ...this.context,
-      count: state.count > 1 ? state.count : undefined,
-    });
-
     if (this.dedupState === state) {
       this.dedupState = null;
     }
 
     try {
-      await this.send(new NotifygramNativeMessage(text));
+      await this.send(
+        new NotifygramNativeMessage(state.level, state.message, {
+          ...this.context,
+          count: state.count > 1 ? state.count : undefined,
+        })
+      );
       for (const waiter of state.waiters) {
         waiter.resolve();
       }
