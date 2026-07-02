@@ -1,5 +1,5 @@
 import { TelegramApiError, TelegramNetworkError } from "./errors.js";
-import type { InputRichMessage } from "./telegram-bot-types.js";
+import type { InputRichMessage } from "./types/telegram-bot.js";
 import type {
   GetUpdatesParams,
   SendMessageResult,
@@ -13,8 +13,6 @@ const MAX_RETRIES = 3;
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
-
-export { TelegramApiError, TelegramNetworkError } from "./errors.js";
 
 
 /**

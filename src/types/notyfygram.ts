@@ -15,7 +15,8 @@ export interface INotifygramOptions {
   showContext?: boolean; 
 }
 
-export interface IFormatMessageOptions extends INotifygramOptions {
+export interface INotifygramNativeMessageOptions extends INotifygramOptions {
+  levelName?: LogLevel;
   count?: number;
 }
 

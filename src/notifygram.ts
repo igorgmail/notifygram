@@ -99,7 +99,7 @@ export class Notifygram {
     message: string,
     options: NotifygramCustomMessageOptions = { mode: "html" }
   ): Promise<void> {
-    return this.log("custom", new NotifygramCustomMessage(message, options));
+    return this.log("custom", new NotifygramCustomMessage("custom", message, options));
   }
 
   /** Отправляет простое сообщение в Telegram. */

@@ -1,12 +1,13 @@
 import { formatMessage, processMessageForTelegram } from "./formatter.js";
 import type { TelegramApi } from "./telegram.js";
-import type { IFormatMessageOptions, LogLevel } from "./types/notyfygram.js";
+import type { INotifygramNativeMessageOptions, LogLevel } from "./types/notyfygram.js";
 
 /** Команда отправки, которую можно выполнить через Telegram API. */
 export interface NotifygramMessage {
   send(telegram: TelegramApi, chatId: number): Promise<unknown>;
 }
 
+/** Настройки пользовательского сообщения, задающие режим разметки текста. */
 export interface NotifygramCustomMessageOptions {
   mode?: "html" | "markdown";
 }
@@ -16,7 +17,7 @@ export class NotifygramNativeMessage implements NotifygramMessage {
   constructor(
     private readonly level: LogLevel,
     private readonly message: string | Error,
-    private readonly options: IFormatMessageOptions = {}
+    private readonly options: INotifygramNativeMessageOptions = {}
   ) {}
 
   send(telegram: TelegramApi, chatId: number): Promise<unknown> {
@@ -33,8 +34,9 @@ export class NotifygramNativeMessage implements NotifygramMessage {
 /** Команда отправки расширенного сообщения. */
 export class NotifygramCustomMessage implements NotifygramMessage {
   constructor(
+    private readonly level: LogLevel,
     private readonly message: string,
-    private readonly options: NotifygramCustomMessageOptions = { mode: "html" }
+    private readonly options: NotifygramCustomMessageOptions
   ) {}
 
   send(telegram: TelegramApi, chatId: number): Promise<unknown> {

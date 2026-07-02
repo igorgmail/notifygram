@@ -1,4 +1,4 @@
-import type { InputRichMessage } from "./telegram-bot-types.js";
+import type { InputRichMessage } from "./types/telegram-bot.js";
 
 import { isErrorObject, IFormatMessageOptions } from "./types/notyfygram.js";
 import type { LogLevel, INotifygramOptions } from "./types/notyfygram.js";
@@ -10,6 +10,12 @@ const LEVEL_LABELS: Record<LogLevel, string> = {
   error: "ERROR",
   fatal: "FATAL",
 };
+
+
+/**
+ * INFO:
+ * Обработка дефолтных сообщений.
+ */
 
 /** Экранирует символы &, < и > для безопасной вставки текста в HTML (parse_mode Telegram). */
 export function escapeHtml(value: string): string {
@@ -89,6 +95,11 @@ export function formatMessage(
 }
 
 /**
+ * INFO:
+ * Обработка кастомных сообщений.
+ */
+
+/**
  * Преобразует обычный текст в валидную HTML-строку для поля rich_message в Telegram.
  * @param rawText Сырой текст с обычными переносами строк \n
  * @returns Строка, готовая для вставки в JSON-поле "html"
@@ -152,7 +163,7 @@ function detectMarkupType(text: string): MarkupType {
   if (!text) return 'Plain';
 
   // 1. Строгие маркеры Markdown, которые НИКОГДА не используются в чистом HTML:
-  const strictMarkdownRegex = /(^\s*\|.*?\|)|(\[\^.*?\])|(^\s*#{1,6}\s+\S+)|(\[.*?\]\(.*?\))|(^\s*[\*\-]\s+\S+)/m;
+  const strictMarkdownRegex = /(^\s*\|.*?\|)|(\[\^[^\]\s]+\](?::)?)|(^\s*#{1,6}\s+\S+)|(\[.*?\]\(.*?\))|(^\s*[\*\-]\s+\S+)/m;
 
   // 2. Стандартный HTML (ищет теги)
   const htmlRegex = /<\/?[a-z][\s\S]*?>|&[a-z#0-9]+;/i;
