@@ -1,14 +1,24 @@
 import type { InputRichMessage } from "./types/telegram-bot.js";
 
-import { isErrorObject, IFormatMessageOptions } from "./types/notyfygram.js";
-import type { LogLevel, INotifygramOptions } from "./types/notyfygram.js";
+import { isErrorObject } from "./types/notyfygram.js";
+import type { LogLevel, IFormatMessageOptions } from "./types/notyfygram.js";
+
+export type CustomMessageMode = "html" | "markdown";
+
+export interface ProcessRichMessageOptions {
+  mode?: CustomMessageMode;
+  meta?: IFormatMessageOptions;
+}
+
+type MessageFormat = "html" | "markdown";
+
 const LEVEL_LABELS: Record<LogLevel, string> = {
   custom: "CUSTOM",
-  message: "MESSAGE",
-  info: "INFO",
-  warning: "WARNING",
-  error: "ERROR",
-  fatal: "FATAL",
+  message: "💬 MESSAGE",
+  info: "ℹ️ INFO",
+  warning: "⚠️ WARNING",
+  error: "❌ ERROR",
+  fatal: "☠️ FATAL",
 };
 
 
@@ -18,32 +28,77 @@ const LEVEL_LABELS: Record<LogLevel, string> = {
  */
 
 /** Экранирует символы &, < и > для безопасной вставки текста в HTML (parse_mode Telegram). */
-export function escapeHtml(value: string): string {
+function escapeHtml(value: string): string {
   return value
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
 }
 
+/** Экранирует служебные символы Markdown в значениях метаданных. */
+function escapeMarkdown(value: string): string {
+  return value.replace(/([\\`*_{}\[\]()#+\-.!|>])/g, "\\$1");
+}
+
+function formatLabel(label: string, format: MessageFormat): string {
+  return format === "markdown" ? `**${label}:**` : `<b>${label}:</b>`;
+}
+
 /** Форматирует метаданные сообщения.*/
-function formatMeta(context: INotifygramOptions): string {
+function formatMetaLines(
+  meta: IFormatMessageOptions = {},
+  format: MessageFormat = "html"
+): string[] {
   const lines: string[] = [];
+  const escapeValue = format === "markdown" ? escapeMarkdown : escapeHtml;
 
-  if (context.service) {
-    lines.push(`<b>Service:</b> ${escapeHtml(context.service)}`);
+  if (meta.service) {
+    lines.push(`${formatLabel("Service", format)} ${escapeValue(meta.service)}`);
   }
-  if (context.env) {
-    lines.push(`<b>Environment:</b> ${escapeHtml(context.env)}`);
+  if (meta.env) {
+    lines.push(`${formatLabel("Environment", format)} ${escapeValue(meta.env)}`);
   }
-  if (context.hostname) {
-    lines.push(`<b>Host:</b> ${escapeHtml(context.hostname)}`);
+  if (meta.hostname) {
+    lines.push(`${formatLabel("Host", format)} ${escapeValue(meta.hostname)}`);
   }
+  if (meta.timeStamp) {
+    const time = new Intl.DateTimeFormat("ru-RU", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      timeZoneName: "short",
+    }).format(new Date());
+    lines.push(`${formatLabel("Timestamp", format)} ${time}`);
+  }
+  return lines;
+}
 
-  if (lines.length === 0) {
-    return "";
-  }
-
+/** Форматирует метаданные сообщения.*/
+function formatMeta(
+  meta: IFormatMessageOptions = {},
+  format: MessageFormat = "html"
+): string {
+  const lines = formatMetaLines(meta, format);
+  if (lines.length === 0) return "";
   return `${lines.join("\n")}\n\n`;
+}
+
+/** Форматирует метаданные для rich_message, где обычные \n могут схлопываться. */
+function formatRichMeta(
+  meta: IFormatMessageOptions = {},
+  format: MessageFormat = "html"
+): string {
+  const lines = formatMetaLines(meta, format);
+  if (lines.length === 0) return "";
+
+  if (format === "markdown") {
+    return `${lines.join("  \n")}\n\n`;
+  }
+
+  return `${lines.map((line) => `<p>${line}</p>`).join("")}<p>&nbsp;</p>`;
 }
 
 /** Нормализует входные данные в строку и стек ошибки. */
@@ -68,7 +123,7 @@ function normalizeInput(input: string | Error): { message: string; stack?: strin
  * 4. Стек — для error/fatal добавляется stack trace в блоке <pre>.
  */
 export function formatMessage(
-  level: LogLevel,
+  levelName: LogLevel,
   input: string | Error,
   options: IFormatMessageOptions = {}
 ): string {
@@ -80,14 +135,15 @@ export function formatMessage(
       ? ` (${options.count} times in the last 60 seconds)`
       : "";
 
-  const header = `<b>${LEVEL_LABELS[level]}${countSuffix}</b>`;
+  const label = escapeHtml(options.label ?? LEVEL_LABELS[levelName]);
+  const header = `<b>${label}${countSuffix}</b>`;
   const meta = formatMeta(options);
   const body = escapeHtml(message);
 
   let text = `${header}\n\n${meta}${body}`;
 
   // Стек показываем только для критичных уровней, чтобы не раздувать info/warning
-  if (stack && (level === "error" || level === "fatal")) {
+  if (stack && (levelName === "error" || levelName === "fatal")) {
     text += `\n\n<pre>${escapeHtml(stack)}</pre>`;
   }
 
@@ -107,29 +163,19 @@ export function formatMessage(
 function formatTelegramRichHtml(rawText: string): string {
   if (!rawText) return "";
 
-  // 1. Разбиваем текст на абзацы по переносам строк.
-  // Используем регулярку, которая захватывает как одиночные, так и множественные \n
   const lines = rawText.split(/\r?\n/);
 
-  const formattedLines = lines.map(line => {
+  const formattedLines = lines.map((line) => {
     const trimmed = line.trim();
-    
+
     // Если строка пустая (был двойной перенос \n\n), превращаем её в гарантированный отступ
     if (trimmed === "") {
       return "<p>&nbsp;</p>";
     }
-    
-    // Экранируем кавычки, чтобы они не ломали JSON, если внутри текста будут атрибуты
-    // (Хотя для обычного текста это просто защита)
-    const safeText = trimmed
-      .replace(/"/g, '\\"')
-      .replace(/'/g, "\\'");
 
-    // Орачиваем обычный текст в тег параграфа
-    return `<p>${safeText}</p>`;
+    return `<p>${escapeHtml(trimmed)}</p>`;
   });
 
-  // Соединяем всё обратно в одну сплошную строку
   return formattedLines.join("");
 }
 
@@ -154,57 +200,57 @@ function prepareTelegramRichHtml(htmlText: string): string {
   return processed;
 }
 
-type MarkupType = 'HTML' | 'Markdown' | 'Plain';
-
-/**
- * Определяет, в каком формате написан текст: HTML, Markdown или обычный текст.
- */
-function detectMarkupType(text: string): MarkupType {
-  if (!text) return 'Plain';
-
-  // 1. Строгие маркеры Markdown, которые НИКОГДА не используются в чистом HTML:
-  const strictMarkdownRegex = /(^\s*\|.*?\|)|(\[\^[^\]\s]+\](?::)?)|(^\s*#{1,6}\s+\S+)|(\[.*?\]\(.*?\))|(^\s*[\*\-]\s+\S+)/m;
-
-  // 2. Стандартный HTML (ищет теги)
-  const htmlRegex = /<\/?[a-z][\s\S]*?>|&[a-z#0-9]+;/i;
-
-  // 3. Мягкий Markdown (жирный/курсив через звездочки и подчеркивания), если нет HTML-тегов
-  const softMarkdownRegex = /([\*_`~].*?[\*_`~])/;
-
-  // СНАЧАЛА проверяем на строгий Markdown (как в вашем случае с таблицей и сноской)
-  if (strictMarkdownRegex.test(text)) {
-    return 'Markdown';
-  }
-
-  // Если строгих маркеров Markdown нет, проверяем на чистый HTML
-  if (htmlRegex.test(text)) {
-    return 'HTML';
-  }
-
-  // Если тегов нет, но есть звездочки/курсив — это Markdown
-  if (softMarkdownRegex.test(text)) {
-    return 'Markdown';
-  }
-
-  return 'Plain';
+function hasHtmlMarkup(text: string): boolean {
+  return /<\/?[a-z][\s\S]*?>|&[a-z#0-9]+;/i.test(text);
 }
 
-export function processMessageForTelegram(rawText: string): InputRichMessage {
-  const format = detectMarkupType(rawText);
-  
-  let finalHtml = "";
+function hasMarkdownBlockMarkup(text: string): boolean {
+  return [
+    /^#{1,6}\s+\S/m,
+    /^>\s+\S/m,
+    /^[-*+]\s+\S/m,
+    /^\d+\.\s+\S/m,
+    /^```/m,
+    /^\[\^[^\]]+\]:\s+\S/m,
+    /^\s*\|.+\|\s*$/m,
+    /^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?\s*$/m,
+  ].some((pattern) => pattern.test(text));
+}
 
-  if (format === 'HTML') {
-    // Если это HTML, используем функцию очистки для готового HTML
-    finalHtml = prepareTelegramRichHtml(rawText); 
-  } else if (format === 'Markdown') {
-    // Если это Markdown, вы можете либо отправить его как есть в поле "markdown",
-    // либо конвертировать в HTML на вашей стороне перед отправкой.
-    return { markdown: rawText.trim() } ;
-  } else {
-    // Если это обычный текст, используем первую функцию, которая расставит <p> и пробелы
-    finalHtml = formatTelegramRichHtml(rawText);
+function hasMarkdownInlineMarkup(text: string): boolean {
+  return /(\*\*[^*\n]+\*\*|__[^_\n]+__|`[^`\n]+`|\[[^\]\n]+\]\([^)]+\))/.test(text);
+}
+
+function detectMessageFormat(text: string): MessageFormat {
+  if (hasMarkdownBlockMarkup(text)) {
+    return "markdown";
   }
 
-  return { html: finalHtml } ;
+  if (!hasHtmlMarkup(text) && hasMarkdownInlineMarkup(text)) {
+    return "markdown";
+  }
+
+  return "html";
+}
+
+export function processMessageForTelegram(
+  rawText: string,
+  options: CustomMessageMode | ProcessRichMessageOptions = {}
+): InputRichMessage {
+  const normalizedOptions =
+    typeof options === "string" ? { mode: options } : options;
+  const mode = normalizedOptions.mode ?? detectMessageFormat(rawText);
+  const meta = formatRichMeta(normalizedOptions.meta, mode);
+
+  if (mode === "markdown") {
+    return { markdown: `${meta}${rawText.trim()}` };
+  }
+
+  const body = hasHtmlMarkup(rawText)
+    ? prepareTelegramRichHtml(rawText)
+    : formatTelegramRichHtml(rawText);
+
+  return {
+    html: `${meta}${body}`,
+  };
 }

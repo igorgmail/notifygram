@@ -7,8 +7,8 @@ import {
 } from "./messages.js";
 import { TelegramApi } from "./telegram.js";
 
-import type { NotifygramMessage, NotifygramCustomMessageOptions } from "./messages.js";
-import type { LogLevel, INotifygramOptions,  } from "./types/notyfygram.js";
+import type { NotifygramMessage, NotifygramCustomMessageOptions, NotifygramMessageOptions } from "./messages.js";
+import type { LogLevel, INotifygramOptions, IFormatMessageOptions, NotifygramLabels } from "./types/notyfygram.js";
 import { isErrorObject } from "./types/notyfygram.js";
 
 /** Числовой приоритет уровней логирования (чем выше — тем важнее). */
@@ -25,7 +25,7 @@ function isLogLevel(value: unknown): value is LogLevel {
   return typeof value === "string" && Object.prototype.hasOwnProperty.call(LEVEL_PRIORITY, value);
 }
 
-function normalizeMinLevel(minLevel: unknown): LogLevel {
+function normalizeMinLevel(minLevel: string): LogLevel {
   if (isLogLevel(minLevel)) {
     return minLevel;
   }
@@ -38,6 +38,21 @@ interface DedupWaiter {
   resolve: () => void;
   reject: (error: unknown) => void;
 }
+
+type NotifygramDefaultOptions = Required<Pick<INotifygramOptions, "minLevel" | "showMeta">> & {
+  meta: Required<NonNullable<INotifygramOptions["meta"]>>;
+};
+
+const DEFAULT_NOTIFYGRAM_OPTIONS: NotifygramDefaultOptions = {
+  minLevel: "custom",
+  showMeta: true,
+  meta: {
+    service: "",
+    env: "",
+    hostname: true,
+    timeStamp: true,
+  },
+};
 
 /** Длина окна дедупликации повторяющихся ошибок (мс). */
 const DEDUP_WINDOW_MS = 60_000;
@@ -56,6 +71,8 @@ interface DedupState {
   level: LogLevel;
   /** Исходное сообщение или объект ошибки. */
   message: string | Error;
+  /** Пользовательский заголовок сообщения. */
+  label?: string;
   /** Таймер отложенной отправки; null, если не запланирован. */
   flushTimer: ReturnType<typeof setTimeout> | null;
   /** Ожидающие Promise для вызовов, объединённых в этот буфер. */
@@ -65,19 +82,26 @@ interface DedupState {
 /** Логгер: форматирует сообщения и отправляет их в Telegram. */
 export class Notifygram {
   /** Очередь исходящих операций отправки в Telegram. */
-  private readonly queue: MessageQueue;
+  private queue: MessageQueue;
+  /** Текущее состояние дедупликации; null, если буфер пуст. */
+  private dedupState: DedupState | null = null;
+
   /** Клиент Telegram API, через который выполняются операции отправки. */
   private readonly telegram: TelegramApi;
   /** Идентификатор чата, куда отправляются сообщения. */
   private readonly chatId: number;
+
+  /** Настройки логгера. */
+  private options!: INotifygramOptions;
   /** Контекст, добавляемый к каждому сообщению, и минимальный уровень логирования. */
-  private readonly context: INotifygramOptions;
-  /** Текущее состояние дедупликации; null, если буфер пуст. */
-  private dedupState: DedupState | null = null;
+  private meta!: IFormatMessageOptions;
+  /** Пользовательские заголовки сообщений по уровню логирования. */
+  private labels: NotifygramLabels = {};
+
 
   /**
    * Создаёт логгер с конфигурацией из окружения и переданными опциями.
-   * @param options — имя сервиса, окружение, хост и минимальный уровень логов.
+   * @param options — Настройки логгера
    */
   constructor(options: INotifygramOptions = {}) {
     loadProjectEnv()
@@ -86,46 +110,76 @@ export class Notifygram {
     this.telegram = new TelegramApi(config.token);
     this.chatId = config.chatId;
     this.queue = new MessageQueue();
-    this.context = {
-      service: options.service ?? process.env.SERVICE_NAME ?? "",
-      env: options.env ?? process.env.NODE_ENV ?? "",
-      hostname: options.hostname ?? os.hostname(),
-      minLevel: normalizeMinLevel(options.minLevel),
+
+    this.init(options);
+  }
+
+  init(options: INotifygramOptions = {}) {
+    this.meta = {
+      service: options.meta?.service ?? process.env.SERVICE_NAME ?? DEFAULT_NOTIFYGRAM_OPTIONS.meta.service,
+      env: options.meta?.env ?? process.env.NODE_ENV ?? DEFAULT_NOTIFYGRAM_OPTIONS.meta.env,
+      hostname: (options.meta?.hostname ?? DEFAULT_NOTIFYGRAM_OPTIONS.meta.hostname) ? os.hostname() : undefined,
+      timeStamp: options.meta?.timeStamp ?? DEFAULT_NOTIFYGRAM_OPTIONS.meta.timeStamp,
     };
+
+    this.options = {
+      minLevel: normalizeMinLevel(options.minLevel ?? DEFAULT_NOTIFYGRAM_OPTIONS.minLevel),
+      showMeta: options.showMeta ?? DEFAULT_NOTIFYGRAM_OPTIONS.showMeta,
+    };
+    this.labels = { ...options.labels };
   }
 
   /** Отправляет кастомное или расширенное сообщение в Telegram. */
   custom(
     message: string,
-    options: NotifygramCustomMessageOptions = { mode: "html" }
+    options: NotifygramCustomMessageOptions = {}
   ): Promise<void> {
-    return this.log("custom", new NotifygramCustomMessage("custom", message, options));
+    return this.log("custom", new NotifygramCustomMessage("custom", message, {
+      meta: this.metaData,
+      mode: options.mode,
+    }));
   }
 
   /** Отправляет простое сообщение в Telegram. */
-  message(message: string | Error): Promise<void> {
-    return this.log("message", new NotifygramNativeMessage("message", message, this.context));
+  message(message: string | Error, options: NotifygramMessageOptions = {}): Promise<void> {
+    return this.log("message", new NotifygramNativeMessage("message", message, {
+      label: options.label ?? this.labelFor("message"),
+      meta: this.metaData,
+    }));
   }
 
   /** Отправляет информационное сообщение. */
-  info(message: string | Error): Promise<void> {
-    return this.log("info", new NotifygramNativeMessage("info", message, this.context));
+  info(message: string | Error, options: NotifygramMessageOptions = {}): Promise<void> {
+    return this.log("info", new NotifygramNativeMessage("info", message, {
+      label: options.label ?? this.labelFor("info"),
+      meta: this.metaData,
+    }));
   }
 
   /** Отправляет предупреждение. */
-  warning(message: string | Error): Promise<void> {
-    return this.log("warning", new NotifygramNativeMessage("warning", message, this.context));
+  warning(message: string | Error, options: NotifygramMessageOptions = {}): Promise<void> {
+    return this.log("warning", new NotifygramNativeMessage("warning", message, {
+      label: options.label ?? this.labelFor("warning"),
+      meta: this.metaData,
+    }));
   }
 
   /** Отправляет ошибку с дедупликацией повторов. */
-  error(message: string | Error): Promise<void> {
-    return this.logDedup("error", message);
+  error(message: string | Error, options: NotifygramMessageOptions = {}): Promise<void> {
+    return this.logDedup("error", message, options);
   }
 
   /** Отправляет критическую ошибку с дедупликацией повторов. */
-  fatal(message: string | Error): Promise<void> {
-    return this.logDedup("fatal", message);
+  fatal(message: string | Error, options: NotifygramMessageOptions = {}): Promise<void> {
+    return this.logDedup("fatal", message, options);
   }
+
+  
+  /** Получает метаданные для сообщения. */
+  get metaData() {
+    return this.options.showMeta ? this.meta : undefined;
+  }
+
 
   /** Немедленно отправляет буфер дедупликации и всю очередь операций. */
   async flush(): Promise<void> {
@@ -152,7 +206,7 @@ export class Notifygram {
 
   /** Проверяет, проходит ли уровень сообщения фильтр minLevel. */
   private shouldLog(level: LogLevel): boolean {
-    const value = LEVEL_PRIORITY[level] >= LEVEL_PRIORITY[this.context?.minLevel ?? "custom"];
+    const value = LEVEL_PRIORITY[level] >= LEVEL_PRIORITY[this.options.minLevel ?? "custom"];
     return value;
   }
 
@@ -161,16 +215,25 @@ export class Notifygram {
     return this.queue.enqueue(() => notifygramMessage.send(this.telegram, this.chatId));
   }
 
+  private labelFor(level: LogLevel): string | undefined {
+    return this.labels[level];
+  }
+
   /**
    * Логирует с дедупликацией: одинаковые сообщения в окне объединяются
    * и отправляются одним сообщением с счётчиком повторов.
    */
-  private logDedup(level: LogLevel, message: string | Error): Promise<void> {
+  private logDedup(
+    level: LogLevel,
+    message: string | Error,
+    options: NotifygramMessageOptions = {}
+  ): Promise<void> {
     if (!this.shouldLog(level)) {
       return Promise.resolve();
     }
 
-    const key = this.dedupKey(message);
+    const label = options.label ?? this.labelFor(level);
+    const key = this.dedupKey(message, label);
     const now = Date.now();
     const isSameWindow =
       this.dedupState &&
@@ -195,6 +258,7 @@ export class Notifygram {
         windowStart: now,
         level,
         message,
+        label,
         flushTimer: null,
         waiters: [],
       };
@@ -223,10 +287,17 @@ export class Notifygram {
 
     try {
       await this.send(
-        new NotifygramNativeMessage(state.level, state.message, {
-          ...this.context,
-          count: state.count > 1 ? state.count : undefined,
-        })
+        new NotifygramNativeMessage(
+          state.level,
+          state.message,
+          {
+            data: {
+              count: state.count > 1 ? state.count : undefined,
+            },
+            label: state.label,
+            meta: this.metaData,
+          }
+        )
       );
       for (const waiter of state.waiters) {
         waiter.resolve();
@@ -240,12 +311,14 @@ export class Notifygram {
   }
 
   /** Строит ключ дедупликации из строки или ошибки. */
-  private dedupKey(message: string | Error): string {
+  private dedupKey(message: string | Error, label?: string): string {
+    const labelPrefix = label !== undefined ? `label:${label}:` : "";
+
     if (isErrorObject(message)) {
-      return `${message.name}:${message.message}`;
+      return `${labelPrefix}${message.name}:${message.message}`;
     }
 
-    return message;
+    return `${labelPrefix}${message}`;
   }
 }
 
