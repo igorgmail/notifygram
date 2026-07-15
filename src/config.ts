@@ -9,11 +9,24 @@ const INIT_HINT =
 
 export { ConfigError } from "./errors.js";
 
+export interface LoadConfigOptions {
+  token?: string;
+  chatId?: number | string;
+}
 
-export function loadConfig(): AppConfig | never {
-  // config();
-  const token = process.env.TELEGRAM_BOT_TOKEN?.trim();
-  const chatIdRaw = process.env.TELEGRAM_CHAT_ID?.trim();
+export function loadConfig(options: LoadConfigOptions = {}): AppConfig | never {
+  const hasExplicitConfig =
+    options.token !== undefined && options.chatId !== undefined;
+
+  if (!hasExplicitConfig) {
+    loadProjectEnv();
+  }
+
+  const token = options.token?.trim() || process.env.TELEGRAM_BOT_TOKEN?.trim();
+  const chatIdRaw =
+    options.chatId !== undefined
+      ? String(options.chatId).trim()
+      : process.env.TELEGRAM_CHAT_ID?.trim();
 
   if (!token) {
     throw new ConfigError(

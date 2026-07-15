@@ -1,5 +1,5 @@
 import os from "node:os";
-import { loadConfig, loadProjectEnv } from "./config.js";
+import { loadConfig } from "./config.js";
 import { MessageQueue } from "./queue.js";
 import {
   NotifygramNativeMessage,
@@ -8,8 +8,8 @@ import {
 import { TelegramApi } from "./telegram.js";
 
 import type { NotifygramMessage, NotifygramCustomMessageOptions, NotifygramMessageOptions } from "./messages.js";
-import type { LogLevel, INotifygramOptions, IFormatMessageOptions, NotifygramLabels } from "./types/notyfygram.js";
-import { isErrorObject } from "./types/notyfygram.js";
+import type { FormatMessageOptions, LogLevel, NotifygramLabels, NotifygramOptions } from "./types/notifygram.js";
+import { isErrorObject } from "./types/notifygram.js";
 
 /** Числовой приоритет уровней логирования (чем выше — тем важнее). */
 const LEVEL_PRIORITY: Record<LogLevel, number> = {
@@ -39,8 +39,8 @@ interface DedupWaiter {
   reject: (error: unknown) => void;
 }
 
-type NotifygramDefaultOptions = Required<Pick<INotifygramOptions, "minLevel" | "showMeta">> & {
-  meta: Required<NonNullable<INotifygramOptions["meta"]>>;
+type NotifygramDefaultOptions = Required<Pick<NotifygramOptions, "minLevel" | "showMeta">> & {
+  meta: Required<NonNullable<NotifygramOptions["meta"]>>;
 };
 
 const DEFAULT_NOTIFYGRAM_OPTIONS: NotifygramDefaultOptions = {
@@ -92,20 +92,22 @@ export class Notifygram {
   private readonly chatId: number;
 
   /** Настройки логгера. */
-  private options!: INotifygramOptions;
+  private options!: NotifygramOptions;
   /** Контекст, добавляемый к каждому сообщению, и минимальный уровень логирования. */
-  private meta!: IFormatMessageOptions;
+  private meta!: FormatMessageOptions;
   /** Пользовательские заголовки сообщений по уровню логирования. */
   private labels: NotifygramLabels = {};
 
 
   /**
-   * Создаёт логгер с конфигурацией из окружения и переданными опциями.
+   * Создаёт логгер с явной конфигурацией или fallback на окружение.
    * @param options — Настройки логгера
    */
-  constructor(options: INotifygramOptions = {}) {
-    loadProjectEnv()
-    const config = loadConfig();
+  constructor(options: NotifygramOptions = {}) {
+    const config = loadConfig({
+      token: options.token,
+      chatId: options.chatId,
+    });
 
     this.telegram = new TelegramApi(config.token);
     this.chatId = config.chatId;
@@ -114,7 +116,7 @@ export class Notifygram {
     this.init(options);
   }
 
-  init(options: INotifygramOptions = {}) {
+  init(options: NotifygramOptions = {}) {
     this.meta = {
       service: options.meta?.service ?? process.env.SERVICE_NAME ?? DEFAULT_NOTIFYGRAM_OPTIONS.meta.service,
       env: options.meta?.env ?? process.env.NODE_ENV ?? DEFAULT_NOTIFYGRAM_OPTIONS.meta.env,
@@ -130,10 +132,7 @@ export class Notifygram {
   }
 
   /** Отправляет кастомное или расширенное сообщение в Telegram. */
-  custom(
-    message: string,
-    options: NotifygramCustomMessageOptions = {}
-  ): Promise<void> {
+  custom(message: string, options: NotifygramCustomMessageOptions = {}): Promise<void> {
     return this.log("custom", new NotifygramCustomMessage("custom", message, {
       meta: this.metaData,
       mode: options.mode,
@@ -215,6 +214,7 @@ export class Notifygram {
     return this.queue.enqueue(() => notifygramMessage.send(this.telegram, this.chatId));
   }
 
+  /** Возвращает метку (label) для указанного уровня логирования. */
   private labelFor(level: LogLevel): string | undefined {
     return this.labels[level];
   }
@@ -323,6 +323,6 @@ export class Notifygram {
 }
 
 /** Фабрика: создаёт экземпляр Notifygram с опциональными настройками. */
-export function createNotifygram(options?: INotifygramOptions): Notifygram {
+export function createNotifygram(options?: NotifygramOptions): Notifygram {
   return new Notifygram(options);
 }

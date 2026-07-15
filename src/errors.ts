@@ -1,4 +1,4 @@
-import type { TelegramResponseParameters } from "./types.js";
+import type { TelegramResponseParameters } from "./types/telegram.js";
 
 /** Thrown when required Notifygram environment configuration is missing or invalid. */
 export class ConfigError extends Error {

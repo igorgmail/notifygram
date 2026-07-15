@@ -109,3 +109,41 @@ export interface SendMessageResult {
   message_id: number;
 }
 
+/**
+ * Тип для параметра rich_message в sendRichMessage и sendRichMessageDraft.
+ * Ровно одно из полей (html или markdown) должно быть передано — API требует это.
+ *
+ * Примеры:
+ *   { html: '<b>Жирный текст</b>' }
+ *   { markdown: '**Жирный текст**', is_rtl: false }
+ */
+export type InputRichMessage = InputRichMessageHtml | InputRichMessageMarkdown;
+
+/** Вариант InputRichMessage с HTML-форматированием */
+export interface InputRichMessageHtml {
+  /** HTML-контент rich-сообщения */
+  html: string;
+  markdown?: never;
+  /** Передайте true для отображения текста справа налево */
+  is_rtl?: boolean;
+  /**
+   * Передайте true чтобы отключить автоматическое определение сущностей
+   * (URL, email, упоминания, хэштеги, команды, телефоны и т.д.)
+   */
+  skip_entity_detection?: boolean;
+}
+
+/** Вариант InputRichMessage с Markdown-форматированием */
+export interface InputRichMessageMarkdown {
+  html?: never;
+  /** Markdown-контент rich-сообщения */
+  markdown: string;
+  /** Передайте true для отображения текста справа налево */
+  is_rtl?: boolean;
+  /**
+   * Передайте true чтобы отключить автоматическое определение сущностей
+   * (URL, email, упоминания, хэштеги, команды, телефоны и т.д.)
+   */
+  skip_entity_detection?: boolean;
+}
+

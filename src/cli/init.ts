@@ -4,9 +4,9 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import readline from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
-import { loadProjectEnv, loadTokenFromEnv } from "../src/config.js";
-import { TelegramApiError } from "../src/errors.js";
-import { TelegramApi } from "../src/telegram.js";
+import { loadProjectEnv, loadTokenFromEnv } from "../config.js";
+import { TelegramApiError } from "../errors.js";
+import { TelegramApi } from "../telegram.js";
 import { waitForChannel } from "./channel.js";
 import { clr } from "./utils.js";
 
@@ -78,7 +78,6 @@ async function main(): Promise<void> {
 
   const rl = readline.createInterface({ input, output });
 
-  // Banner
   console.log(c.blue("╔═══════════════════════════════════════════════╗"));
   console.log(c.bold(c.blue("              Notifygram v1.0.0")));
   console.log(c.blue("╚═══════════════════════════════════════════════╝"));
@@ -124,7 +123,6 @@ async function main(): Promise<void> {
     console.log(c.blue("3. Send any message to the channel, e.g. 'connect'"));
     console.log("");
     console.log(c.blue("Waiting message from channel..."));
-    // await rl.question("Press Enter when ready...");
 
     const chat = await waitForChannel(telegram);
     console.log("\n\n");
@@ -134,15 +132,14 @@ async function main(): Promise<void> {
     console.log("");
     console.log(c.green("Saving chat ID to .env..."));
     saveProjectEnvValue("TELEGRAM_CHAT_ID", String(chat.id));
-    await telegram.sendMessage(
-      {
-        chatId: chat.id,
-        text: "✅ Notifygram connected successfully.\n\nThis chat ID was saved to your .env:\n\n<b><code>TELEGRAM_CHAT_ID=" +
-          chat.id +
-          "</code></b>",
-        parseMode: "HTML",
-      }
-    );
+    await telegram.sendMessage({
+      chatId: chat.id,
+      text:
+        "✅ Notifygram connected successfully.\n\nThis chat ID was saved to your .env:\n\n<b><code>TELEGRAM_CHAT_ID=" +
+        chat.id +
+        "</code></b>",
+      parseMode: "HTML",
+    });
 
     console.log(c.green("✓ Done."));
   } catch (error) {

@@ -3,24 +3,39 @@
   "version": "1.0.0",
   "description": "Lightweight Node.js library for sending application notifications to a Telegram channel",
   "type": "module",
-  "main": "./dist/src/index.js",
-  "types": "./dist/src/index.d.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "author": "Igor K <igorfordev@gmail.com>",
+  "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/igorfordev/notifygram.git"
+  },
+  "homepage": "https://github.com/igorfordev/notifygram#readme",
+  "bugs": {
+      "url": "https://github.com/igorfordev/notifygram/issues"
+  },
   "exports": {
     ".": {
-      "types": "./dist/src/index.d.ts",
-      "import": "./dist/src/index.js"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
     }
   },
   "bin": {
     "notifygram": "./dist/cli/init.js"
   },
   "files": [
-    "dist"
+    "dist",
+    ".env.example"
   ],
   "scripts": {
-    "build": "tsc",
-    "prepublishOnly": "npm run build",
-    "test": "node testapp/app.js"
+    "clean": "node -e \"fs.rmSync('dist', { recursive: true, force: true })\"",
+    "build": "npm run clean && tsc",
+    "pack:check": "npm pack --dry-run",
+    "test:types": "tsc -p tsconfig.smoke.json",
+    "test:runtime": "node -e \"delete process.env.TELEGRAM_BOT_TOKEN; delete process.env.TELEGRAM_CHAT_ID; import('./dist/index.js').then(({ createNotifygram }) => { const notifygram = createNotifygram({ token: '123456:test-token', chatId: -1001234567890, meta: { hostname: false, timeStamp: false } }); if (typeof notifygram.flush !== 'function') process.exit(1); })\"",
+    "test": "npm run build && npm run test:types && npm run test:runtime",
+    "prepack": "npm run build"
   },
   "engines": {
     "node": ">=18"
@@ -32,8 +47,6 @@
     "monitoring",
     "alerts"
   ],
-  "author": "",
-  "license": "ISC",
   "devDependencies": {
     "@types/node": "^22.15.21",
     "typescript": "^5.8.3"

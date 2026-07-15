@@ -1,9 +1,9 @@
-import { formatMessage, processMessageForTelegram } from "./formatter.js";
+import { formatMessage, formatRichMessage } from "./formatter.js";
 import type { CustomMessageMode } from "./formatter.js";
 import type { TelegramApi } from "./telegram.js";
-import type { IFormatMessageOptions, INotifygramMessageData, LogLevel } from "./types/notyfygram.js";
+import type { FormatMessageOptions, LogLevel, NotifygramMessageData } from "./types/notifygram.js";
 
-/** Команда отправки, которую можно выполнить через Telegram API. */
+/** Сообщение, которое можно отправить через Telegram API. */
 export interface NotifygramMessage {
   readonly message: string | Error;
   readonly options?: NotifygramMessageOptions;
@@ -13,9 +13,9 @@ export interface NotifygramMessage {
 
 /** Данные и метаданные, используемые при форматировании сообщения. */
 export interface NotifygramMessageOptions {
-  data?: INotifygramMessageData;
+  data?: NotifygramMessageData;
   label?: string;
-  meta?: IFormatMessageOptions;
+  meta?: FormatMessageOptions;
 }
 
 /** Настройки пользовательского сообщения, задающие режим разметки текста. */
@@ -23,7 +23,7 @@ export interface NotifygramCustomMessageOptions {
   mode?: CustomMessageMode;
 }
 
-/** Команда отправки обычного HTML-сообщения. */
+/** Обычное HTML-сообщение. */
 export class NotifygramNativeMessage implements NotifygramMessage {
 
   constructor(
@@ -55,7 +55,7 @@ export class NotifygramNativeMessage implements NotifygramMessage {
   }
 }
 
-/** Команда отправки расширенного сообщения. */
+/** Расширенное (rich) сообщение. */
 export class NotifygramCustomMessage implements NotifygramMessage {
   constructor(
     public levelName: LogLevel,
@@ -71,11 +71,10 @@ export class NotifygramCustomMessage implements NotifygramMessage {
   }
 
   send(telegram: TelegramApi, chatId: number): Promise<unknown> {
-    const data = processMessageForTelegram(this.message, {
+    const data = formatRichMessage(this.message, {
       mode: this.options.mode,
       meta: this.options.meta,
     });
-    console.log("▶ ⇛ data:", data);
 
     return telegram.sendRichMessage({
       chatId,

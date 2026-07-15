@@ -1,19 +1,18 @@
 import { TelegramApiError, TelegramNetworkError } from "./errors.js";
-import type { InputRichMessage } from "./types/telegram-bot.js";
+import type { InputRichMessage } from "./types/telegram.js";
 import type {
   GetUpdatesParams,
   SendMessageResult,
   TelegramResponse,
   TelegramUpdate,
   TelegramUser,
-} from "./types.js";
+} from "./types/telegram.js";
 
 const MAX_RETRIES = 3;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
-
 
 /**
  * Определяет, является ли ошибка временным сбоем сети (fetch, undici, таймаут, DNS и т.п.),

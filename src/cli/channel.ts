@@ -1,6 +1,6 @@
-import type { TelegramApi } from "../src/telegram.js";
-import type { TelegramChat, TelegramUpdate } from "../src/types.js";
-import { ChatType } from "../src/types.js";
+import type { TelegramApi } from "../telegram.js";
+import type { TelegramChat, TelegramUpdate } from "../types/telegram.js";
+import { ChatType } from "../types/telegram.js";
 
 const CHANNEL_TIMEOUT_MS = 120_000;
 
@@ -42,25 +42,20 @@ export async function waitForChannel(
 }
 
 function extractChat(update: TelegramUpdate): TelegramChat | undefined {
-
-  // Channel
-  if('channel_post' in update && update.channel_post?.chat.type === ChatType.CHANNEL) {
-    return update.channel_post?.chat;
+  if ("channel_post" in update && update.channel_post?.chat.type === ChatType.CHANNEL) {
+    return update.channel_post.chat;
   }
 
-  // SuperGroup
-  if('message' in update && update.message?.chat.type === ChatType.SUPERGROUP) {
-    return update.message?.chat;
+  if ("message" in update && update.message?.chat.type === ChatType.SUPERGROUP) {
+    return update.message.chat;
   }
 
-  // Group
-  if('message' in update && update.message?.chat.type === ChatType.GROUP) {
-    return update.message?.chat;
+  if ("message" in update && update.message?.chat.type === ChatType.GROUP) {
+    return update.message.chat;
   }
 
-  // Private
-  if('message' in update && update.message?.chat.type === ChatType.PRIVATE) {
-    return update.message?.chat;
+  if ("message" in update && update.message?.chat.type === ChatType.PRIVATE) {
+    return update.message.chat;
   }
 
   return undefined;

@@ -1,13 +1,13 @@
-import type { InputRichMessage } from "./types/telegram-bot.js";
+import type { InputRichMessage } from "./types/telegram.js";
 
-import { isErrorObject } from "./types/notyfygram.js";
-import type { LogLevel, IFormatMessageOptions } from "./types/notyfygram.js";
+import { isErrorObject } from "./types/notifygram.js";
+import type { FormatMessageOptions, LogLevel } from "./types/notifygram.js";
 
 export type CustomMessageMode = "html" | "markdown";
 
-export interface ProcessRichMessageOptions {
+export interface FormatRichMessageOptions {
   mode?: CustomMessageMode;
-  meta?: IFormatMessageOptions;
+  meta?: FormatMessageOptions;
 }
 
 type MessageFormat = "html" | "markdown";
@@ -22,12 +22,8 @@ const LEVEL_LABELS: Record<LogLevel, string> = {
 };
 
 
-/**
- * INFO:
- * Обработка дефолтных сообщений.
- */
+/* ── Общие хелперы ──────────────────────────────────────────────── */
 
-/** Экранирует символы &, < и > для безопасной вставки текста в HTML (parse_mode Telegram). */
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, "&amp;")
@@ -35,7 +31,6 @@ function escapeHtml(value: string): string {
     .replace(/>/g, "&gt;");
 }
 
-/** Экранирует служебные символы Markdown в значениях метаданных. */
 function escapeMarkdown(value: string): string {
   return value.replace(/([\\`*_{}\[\]()#+\-.!|>])/g, "\\$1");
 }
@@ -44,9 +39,8 @@ function formatLabel(label: string, format: MessageFormat): string {
   return format === "markdown" ? `**${label}:**` : `<b>${label}:</b>`;
 }
 
-/** Форматирует метаданные сообщения.*/
 function formatMetaLines(
-  meta: IFormatMessageOptions = {},
+  meta: FormatMessageOptions = {},
   format: MessageFormat = "html"
 ): string[] {
   const lines: string[] = [];
@@ -76,9 +70,11 @@ function formatMetaLines(
   return lines;
 }
 
-/** Форматирует метаданные сообщения.*/
+
+/* ── Обычные сообщения (parse_mode: HTML) ───────────────────────── */
+
 function formatMeta(
-  meta: IFormatMessageOptions = {},
+  meta: FormatMessageOptions = {},
   format: MessageFormat = "html"
 ): string {
   const lines = formatMetaLines(meta, format);
@@ -86,22 +82,6 @@ function formatMeta(
   return `${lines.join("\n")}\n\n`;
 }
 
-/** Форматирует метаданные для rich_message, где обычные \n могут схлопываться. */
-function formatRichMeta(
-  meta: IFormatMessageOptions = {},
-  format: MessageFormat = "html"
-): string {
-  const lines = formatMetaLines(meta, format);
-  if (lines.length === 0) return "";
-
-  if (format === "markdown") {
-    return `${lines.join("  \n")}\n\n`;
-  }
-
-  return `${lines.map((line) => `<p>${line}</p>`).join("")}<p>&nbsp;</p>`;
-}
-
-/** Нормализует входные данные в строку и стек ошибки. */
 function normalizeInput(input: string | Error): { message: string; stack?: string } {
   if (isErrorObject(input)) {
     return {
@@ -114,22 +94,16 @@ function normalizeInput(input: string | Error): { message: string; stack?: strin
 }
 
 /**
- * Собирает текст лога для отправки в Telegram (parse_mode: HTML).
- *
- * Структура результата:
- * 1. Заголовок — уровень лога (MESSAGE, INFO, …) и, при дедупликации, счётчик повторов.
- * 2. Метаданные — service, env, hostname (если переданы в options).
- * 3. Тело — текст сообщения или Error.message с экранированием HTML.
- * 4. Стек — для error/fatal добавляется stack trace в блоке <pre>.
+ * Собирает текст обычного лога для Telegram (parse_mode: HTML).
+ * Структура: заголовок → meta → тело → stack (для error/fatal).
  */
 export function formatMessage(
   levelName: LogLevel,
   input: string | Error,
-  options: IFormatMessageOptions = {}
+  options: FormatMessageOptions = {}
 ): string {
   const { message, stack } = normalizeInput(input);
 
-  // Суффикс при агрегации одинаковых сообщений за последние 60 секунд
   const countSuffix =
     options.count && options.count > 1
       ? ` (${options.count} times in the last 60 seconds)`
@@ -142,7 +116,6 @@ export function formatMessage(
 
   let text = `${header}\n\n${meta}${body}`;
 
-  // Стек показываем только для критичных уровней, чтобы не раздувать info/warning
   if (stack && (levelName === "error" || levelName === "fatal")) {
     text += `\n\n<pre>${escapeHtml(stack)}</pre>`;
   }
@@ -150,16 +123,24 @@ export function formatMessage(
   return text;
 }
 
-/**
- * INFO:
- * Обработка кастомных сообщений.
- */
 
-/**
- * Преобразует обычный текст в валидную HTML-строку для поля rich_message в Telegram.
- * @param rawText Сырой текст с обычными переносами строк \n
- * @returns Строка, готовая для вставки в JSON-поле "html"
- */
+/* ── Custom / rich сообщения ────────────────────────────────────── */
+
+function formatRichMeta(
+  meta: FormatMessageOptions = {},
+  format: MessageFormat = "html"
+): string {
+  const lines = formatMetaLines(meta, format);
+  if (lines.length === 0) return "";
+
+  if (format === "markdown") {
+    return `${lines.join("  \n")}\n\n`;
+  }
+
+  return `${lines.map((line) => `<p>${line}</p>`).join("")}<p>&nbsp;</p>`;
+}
+
+/** Обычный текст → HTML-параграфы для rich_message. */
 function formatTelegramRichHtml(rawText: string): string {
   if (!rawText) return "";
 
@@ -168,7 +149,6 @@ function formatTelegramRichHtml(rawText: string): string {
   const formattedLines = lines.map((line) => {
     const trimmed = line.trim();
 
-    // Если строка пустая (был двойной перенос \n\n), превращаем её в гарантированный отступ
     if (trimmed === "") {
       return "<p>&nbsp;</p>";
     }
@@ -179,22 +159,12 @@ function formatTelegramRichHtml(rawText: string): string {
   return formattedLines.join("");
 }
 
-/**
- * Готовит существующую HTML-строку для отправки в Telegram rich_message.
- * Сохраняет все теги и кавычки, корректно обрабатывая только пустые переносы.
- */
+/** Готовый HTML → безопасный для Telegram rich_message (теги сохраняются). */
 function prepareTelegramRichHtml(htmlText: string): string {
   if (!htmlText) return "";
 
-  // 1. Очищаем от лишних пробелов по краям
   let processed = htmlText.trim();
-
-  // 2. Находим пустые строки между тегами и заменяем их на пустые параграфы с неразрывным пробелом,
-  // чтобы Telegram их не схлопывал.
   processed = processed.replace(/^\s*[\r\n]/gm, "<p>&nbsp;</p>");
-
-  // 3. Убираем физические переносы строк внутри самого HTML, так как блоки (p, pre, ul) 
-  // сами перенесут строку, а лишние \n могут превратиться в ненужные пробелы.
   processed = processed.replace(/[\r\n]+/g, "");
 
   return processed;
@@ -233,9 +203,12 @@ function detectMessageFormat(text: string): MessageFormat {
   return "html";
 }
 
-export function processMessageForTelegram(
+/**
+ * Публичный вход для custom/rich: собирает InputRichMessage (html | markdown).
+ */
+export function formatRichMessage(
   rawText: string,
-  options: CustomMessageMode | ProcessRichMessageOptions = {}
+  options: CustomMessageMode | FormatRichMessageOptions = {}
 ): InputRichMessage {
   const normalizedOptions =
     typeof options === "string" ? { mode: options } : options;
