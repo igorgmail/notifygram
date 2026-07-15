@@ -134,6 +134,7 @@ export class Notifygram {
   /** Отправляет кастомное или расширенное сообщение в Telegram. */
   custom(message: string, options: NotifygramCustomMessageOptions = {}): Promise<void> {
     return this.log("custom", new NotifygramCustomMessage("custom", message, {
+      label: options.label ?? this.labelFor("custom"),
       meta: this.metaData,
       mode: options.mode,
     }));

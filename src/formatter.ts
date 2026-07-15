@@ -8,6 +8,8 @@ export type CustomMessageMode = "html" | "markdown";
 export interface FormatRichMessageOptions {
   mode?: CustomMessageMode;
   meta?: FormatMessageOptions;
+  /** Заголовок сообщения. Если не задан — заголовок не добавляется. */
+  label?: string;
 }
 
 type MessageFormat = "html" | "markdown";
@@ -126,6 +128,15 @@ export function formatMessage(
 
 /* ── Custom / rich сообщения ────────────────────────────────────── */
 
+/** Заголовок custom/rich-сообщения (только если label передан). */
+function formatRichHeader(label: string, format: MessageFormat): string {
+  if (format === "markdown") {
+    return `**${escapeMarkdown(label)}**\n\n`;
+  }
+
+  return `<p><b>${escapeHtml(label)}</b></p><p>&nbsp;</p>`;
+}
+
 function formatRichMeta(
   meta: FormatMessageOptions = {},
   format: MessageFormat = "html"
@@ -205,6 +216,7 @@ function detectMessageFormat(text: string): MessageFormat {
 
 /**
  * Публичный вход для custom/rich: собирает InputRichMessage (html | markdown).
+ * Структура: заголовок (опционально) → meta → тело.
  */
 export function formatRichMessage(
   rawText: string,
@@ -213,10 +225,13 @@ export function formatRichMessage(
   const normalizedOptions =
     typeof options === "string" ? { mode: options } : options;
   const mode = normalizedOptions.mode ?? detectMessageFormat(rawText);
+  const header = normalizedOptions.label
+    ? formatRichHeader(normalizedOptions.label, mode)
+    : "";
   const meta = formatRichMeta(normalizedOptions.meta, mode);
 
   if (mode === "markdown") {
-    return { markdown: `${meta}${rawText.trim()}` };
+    return { markdown: `${header}${meta}${rawText.trim()}` };
   }
 
   const body = hasHtmlMarkup(rawText)
@@ -224,6 +239,6 @@ export function formatRichMessage(
     : formatTelegramRichHtml(rawText);
 
   return {
-    html: `${meta}${body}`,
+    html: `${header}${meta}${body}`,
   };
 }

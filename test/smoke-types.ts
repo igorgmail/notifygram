@@ -34,6 +34,7 @@ const messageOptions: NotifygramMessageOptions = {
 
 const customOptions: NotifygramCustomMessageOptions = {
   mode: customMode,
+  label: "Smoke custom",
 };
 
 const notifygram = createNotifygram(options);

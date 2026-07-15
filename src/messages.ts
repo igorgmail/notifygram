@@ -21,6 +21,8 @@ export interface NotifygramMessageOptions {
 /** Настройки пользовательского сообщения, задающие режим разметки текста. */
 export interface NotifygramCustomMessageOptions {
   mode?: CustomMessageMode;
+  /** Заголовок сообщения. Если не задан — заголовок не добавляется. */
+  label?: string;
 }
 
 /** Обычное HTML-сообщение. */
@@ -74,6 +76,7 @@ export class NotifygramCustomMessage implements NotifygramMessage {
     const data = formatRichMessage(this.message, {
       mode: this.options.mode,
       meta: this.options.meta,
+      label: this.options.label,
     });
 
     return telegram.sendRichMessage({

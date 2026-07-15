@@ -95,7 +95,7 @@ const notifygramOrder = createNotifygram({
   },
   labels: {
     info: "New order INFO",
-    custom: "New order",
+    custom: "New order CUSTOM",
   },
   token: "8438725980:AAH5BjEvpRMVOXVgne4YP1uau6-0TR3GKNE",
   chatId: -1003962530412,
@@ -120,7 +120,7 @@ notifygramOrder.custom(`
     </tr>
   </table>
 </details>
-`, { label: "New order CUSTOM" });
+`);
 // main();
 
 // main();
