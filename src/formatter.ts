@@ -134,7 +134,7 @@ function formatRichHeader(label: string, format: MessageFormat): string {
     return `**${escapeMarkdown(label)}**\n\n`;
   }
 
-  return `<p><b>${escapeHtml(label)}</b></p><p>&nbsp;</p>`;
+  return `<p><b>${escapeHtml(label)}</b></p>`;
 }
 
 function formatRichMeta(
@@ -148,7 +148,8 @@ function formatRichMeta(
     return `${lines.join("  \n")}\n\n`;
   }
 
-  return `${lines.map((line) => `<p>${line}</p>`).join("")}<p>&nbsp;</p>`;
+  // Один <p> + <br/> — как \n между строками meta в обычных сообщениях.
+  return `<p>${lines.join("<br/>")}</p>`;
 }
 
 /** Обычный текст → HTML-параграфы для rich_message. */
@@ -174,11 +175,7 @@ function formatTelegramRichHtml(rawText: string): string {
 function prepareTelegramRichHtml(htmlText: string): string {
   if (!htmlText) return "";
 
-  let processed = htmlText.trim();
-  processed = processed.replace(/^\s*[\r\n]/gm, "<p>&nbsp;</p>");
-  processed = processed.replace(/[\r\n]+/g, "");
-
-  return processed;
+  return htmlText.trim().replace(/[\r\n]+/g, "");
 }
 
 function hasHtmlMarkup(text: string): boolean {
