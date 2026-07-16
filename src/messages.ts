@@ -3,7 +3,7 @@ import type { CustomMessageMode } from "./formatter.js";
 import type { TelegramApi } from "./telegram.js";
 import type { FormatMessageOptions, LogLevel, NotifygramMessageData } from "./types/notifygram.js";
 
-/** Сообщение, которое можно отправить через Telegram API. */
+/** Message that can be sent via the Telegram API. */
 export interface NotifygramMessage {
   readonly message: string | Error;
   readonly options?: NotifygramMessageOptions;
@@ -11,21 +11,21 @@ export interface NotifygramMessage {
   send(telegram: TelegramApi, chatId: number): Promise<unknown>;
 }
 
-/** Данные и метаданные, используемые при форматировании сообщения. */
+/** Data and metadata used when formatting a message. */
 export interface NotifygramMessageOptions {
   data?: NotifygramMessageData;
   label?: string;
   meta?: FormatMessageOptions;
 }
 
-/** Настройки пользовательского сообщения, задающие режим разметки текста. */
+/** Custom message options that set the text markup mode. */
 export interface NotifygramCustomMessageOptions {
   mode?: CustomMessageMode;
-  /** Заголовок сообщения. Если не задан — заголовок не добавляется. */
+  /** Message title. If omitted, no title is added. */
   label?: string;
 }
 
-/** Обычное HTML-сообщение. */
+/** Regular HTML message. */
 export class NotifygramNativeMessage implements NotifygramMessage {
 
   constructor(
@@ -57,7 +57,7 @@ export class NotifygramNativeMessage implements NotifygramMessage {
   }
 }
 
-/** Расширенное (rich) сообщение. */
+/** Rich (extended) message. */
 export class NotifygramCustomMessage implements NotifygramMessage {
   constructor(
     public levelName: LogLevel,
