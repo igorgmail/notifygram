@@ -15,8 +15,8 @@ function sleep(ms: number): Promise<void> {
 }
 
 /**
- * Определяет, является ли ошибка временным сбоем сети (fetch, undici, таймаут, DNS и т.п.),
- * при котором имеет смысл повторить запрос.
+ * Returns true if the error is a transient network failure (fetch, undici, timeout, DNS, etc.)
+ * where retrying the request makes sense.
  */
 function isTransientNetworkError(error: unknown): boolean {
   if (!(error instanceof Error)) {
@@ -61,7 +61,7 @@ export class TelegramApi {
     this.baseUrl = `https://api.telegram.org/bot${token}`;
   }
 
-  /** Отправляет сообщение в чат. */
+  /** Sends a message to a chat. */
   async sendMessage(params: SendMessageParams): Promise<TelegramResponse<SendMessageResult>> {
     return this.requestWithRetry("sendMessage", {
       chat_id: params.chatId,
@@ -70,7 +70,7 @@ export class TelegramApi {
     });
   }
 
-  /** Отправляет rich-сообщение в чат. */
+  /** Sends a rich message to a chat. */
   async sendRichMessage(
     params: SendRichMessageParams
   ): Promise<TelegramResponse<SendMessageResult>> {
@@ -111,9 +111,9 @@ export class TelegramApi {
   }
 
   /**
-   * Выполняет POST-запрос к Telegram Bot API с JSON-телом.
-   * При сетевых сбоях и 429 повторяет запрос с экспоненциальной задержкой
-   * (до {@link MAX_RETRIES} попыток).
+   * Performs a POST request to the Telegram Bot API with a JSON body.
+   * On network failures and HTTP 429, retries with exponential backoff
+   * (up to {@link MAX_RETRIES} attempts).
    */
   private async requestWithRetry<T>(
     method: string,
@@ -151,9 +151,9 @@ export class TelegramApi {
   }
 
   /**
-   * Обрабатывает сбой fetch: при временной сетевой ошибке ждёт с экспоненциальной
-   * задержкой и повторяет запрос через callback; иначе выбрасывает TelegramNetworkError.
-   * Не более {@link MAX_RETRIES} попыток.
+   * Handles a fetch failure: on a transient network error waits with exponential
+   * backoff and retries via the callback; otherwise throws TelegramNetworkError.
+   * At most {@link MAX_RETRIES} attempts.
    */
   private async retryOnNetworkError<T>(
     retry: () => Promise<T>,
@@ -171,9 +171,9 @@ export class TelegramApi {
   }
 
   /**
-   * Обрабатывает ответ 429 (rate limit): ждёт retry_after из parameters Telegram API
-   * и повторяет запрос; при исчерпании попыток выбрасывает TelegramApiError.
-   * Не более {@link MAX_RETRIES} попыток.
+   * Handles a 429 (rate limit) response: waits for retry_after from Telegram API
+   * parameters and retries; throws TelegramApiError when attempts are exhausted.
+   * At most {@link MAX_RETRIES} attempts.
    */
   private async retryAfterDelay<T>(
     retry: () => Promise<TelegramResponse<T>>,
@@ -195,9 +195,9 @@ export class TelegramApi {
   }
 
   /**
-   * Выполняет GET-запрос по готовому URL (например, getUpdates с query-параметрами).
-   * При сетевых сбоях и 429 повторяет запрос с экспоненциальной задержкой
-   * (до {@link MAX_RETRIES} попыток).
+   * Performs a GET request to a ready-made URL (e.g. getUpdates with query params).
+   * On network failures and HTTP 429, retries with exponential backoff
+   * (up to {@link MAX_RETRIES} attempts).
    */
   private async requestGetUrl<T>(
     url: string,
@@ -230,15 +230,15 @@ export class TelegramApi {
   }
 
   /**
-   * Читает тело HTTP-ответа как JSON и приводит его к формату Telegram Bot API.
+   * Reads the HTTP response body as JSON and casts it to the Telegram Bot API format.
    */
   private async parseJsonResponse<T>(res: Response): Promise<TelegramResponse<T>> {
     return (await res.json()) as TelegramResponse<T>;
   }
 
   /**
-   * Проверяет, что ответ означает превышение лимита запросов (HTTP 429
-   * или error_code 429 в теле Telegram API).
+   * Returns true if the response indicates rate limiting (HTTP 429
+   * or error_code 429 in the Telegram API body).
    */
   private isRateLimited(
     res: Response,
@@ -248,8 +248,8 @@ export class TelegramApi {
   }
 
   /**
-   * Проверяет успешность HTTP-ответа и поля ok в JSON Telegram API;
-   * при ошибке выбрасывает TelegramApiError, иначе сужает тип data до ok: true.
+   * Asserts that the HTTP response and the Telegram API `ok` field are successful;
+   * throws TelegramApiError on failure, otherwise narrows data to ok: true.
    */
   private assertOkResponse(
     res: Response,
@@ -273,8 +273,8 @@ export class TelegramApi {
   }
 
   /**
-   * Создаёт TelegramApiError из текста ошибки, HTTP-статуса и полей
-   * error_code / parameters из ответа Telegram API.
+   * Creates a TelegramApiError from the error message, HTTP status, and
+   * error_code / parameters fields from the Telegram API response.
    */
   private createApiError(
     message: string,

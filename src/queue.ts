@@ -1,32 +1,32 @@
-/** Асинхронная операция отправки, которую нужно выполнить через очередь. */
+/** Async send operation to be executed through the queue. */
 export type SendOperation = () => Promise<unknown>;
 
-/** Элемент очереди: операция отправки и callback для сигнализации о завершении. */
+/** Queue item: a send operation and a callback signaling completion. */
 interface QueueItem {
   send: SendOperation;
   resolve: () => void;
 }
 
-/** Минимальный интервал между операциями отправки в Telegram (мс). */
+/** Minimum interval between Telegram send operations (ms). */
 const MIN_INTERVAL_MS = 1000;
 
 /**
- * Очередь исходящих операций Telegram.
- * Выполняет операции последовательно с соблюдением rate limit.
+ * Queue of outgoing Telegram operations.
+ * Executes operations sequentially while respecting the rate limit.
  */
 export class MessageQueue {
-  /** Буфер операций, ожидающих отправки. */
+  /** Buffer of operations waiting to be sent. */
   private readonly queue: QueueItem[] = [];
-  /** Флаг: идёт ли сейчас цикл отправки. */
+  /** Whether the send loop is currently running. */
   private processing = false;
-  /** Время последней успешной отправки (для расчёта паузы). */
+  /** Timestamp of the last successful send (used to compute the pause). */
   private lastSendTime = 0;
-  /** Общий Promise ожидания опустошения очереди; переиспользуется при параллельных flush(). */
+  /** Shared promise waiting for the queue to drain; reused across parallel flush() calls. */
   private pendingFlush: Promise<void> | null = null;
 
   /**
-   * Добавляет операцию отправки в очередь и возвращает Promise,
-   * который разрешится после выполнения операции (или при ошибке отправки).
+   * Enqueues a send operation and returns a Promise
+   * that resolves after the operation completes (or after a send error).
    */
   enqueue(send: SendOperation): Promise<void> {
     return new Promise((resolve) => {
@@ -36,8 +36,8 @@ export class MessageQueue {
   }
 
   /**
-   * Ждёт, пока очередь полностью обработается.
-   * Параллельные вызовы flush() получают один и тот же Promise.
+   * Waits until the queue is fully processed.
+   * Parallel flush() calls share the same Promise.
    */
   async flush(): Promise<void> {
     if (this.queue.length === 0 && !this.processing) {
@@ -53,7 +53,7 @@ export class MessageQueue {
     return this.pendingFlush;
   }
 
-  /** Ожидает завершения обработки и опустошения очереди (опрос каждые 50 мс). */
+  /** Waits until processing finishes and the queue is empty (polls every 50 ms). */
   private async waitUntilEmpty(): Promise<void> {
     while (this.processing || this.queue.length > 0) {
       await sleep(50);
@@ -61,9 +61,9 @@ export class MessageQueue {
   }
 
   /**
-   * Обрабатывает очередь: выполняет операции по одной,
-   * выдерживая MIN_INTERVAL_MS между отправками.
-   * При ошибке логирует в stderr и продолжает работу, не прерывая хост-приложение.
+   * Processes the queue: runs operations one by one,
+   * keeping MIN_INTERVAL_MS between sends.
+   * On error, logs to stderr and continues without crashing the host app.
    */
   private async processQueue(): Promise<void> {
     if (this.processing) {
@@ -108,7 +108,7 @@ export class MessageQueue {
   }
 }
 
-/** Возвращает Promise, который разрешится через указанное число миллисекунд. */
+/** Returns a Promise that resolves after the given number of milliseconds. */
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }

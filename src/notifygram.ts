@@ -11,7 +11,7 @@ import type { NotifygramMessage, NotifygramCustomMessageOptions, NotifygramMessa
 import type { FormatMessageOptions, LogLevel, NotifygramLabels, NotifygramOptions } from "./types/notifygram.js";
 import { isErrorObject } from "./types/notifygram.js";
 
-/** Числовой приоритет уровней логирования (чем выше — тем важнее). */
+/** Numeric priority of log levels (higher means more important). */
 const LEVEL_PRIORITY: Record<LogLevel, number> = {
   custom: 0,
   message: 1,
@@ -54,54 +54,54 @@ const DEFAULT_NOTIFYGRAM_OPTIONS: NotifygramDefaultOptions = {
   },
 };
 
-/** Длина окна дедупликации повторяющихся ошибок (мс). */
+/** Deduplication window length for repeated errors (ms). */
 const DEDUP_WINDOW_MS = 60_000;
-/** Задержка перед отправкой сгруппированного сообщения (мс). */
+/** Delay before sending a grouped message (ms). */
 const DEDUP_DEBOUNCE_MS = 2_000;
 
-/** Состояние буфера дедупликации для одного уникального сообщения. */
+/** Deduplication buffer state for a single unique message. */
 interface DedupState {
-  /** Ключ дедупликации (текст или имя+сообщение ошибки). */
+  /** Deduplication key (text, or error name + message). */
   key: string;
-  /** Сколько раз сообщение повторилось в текущем окне. */
+  /** How many times the message repeated in the current window. */
   count: number;
-  /** Время начала текущего окна дедупликации. */
+  /** Start time of the current deduplication window. */
   windowStart: number;
-  /** Уровень логирования. */
+  /** Log level. */
   level: LogLevel;
-  /** Исходное сообщение или объект ошибки. */
+  /** Original message or error object. */
   message: string | Error;
-  /** Пользовательский заголовок сообщения. */
+  /** Custom message title. */
   label?: string;
-  /** Таймер отложенной отправки; null, если не запланирован. */
+  /** Deferred send timer; null if not scheduled. */
   flushTimer: ReturnType<typeof setTimeout> | null;
-  /** Ожидающие Promise для вызовов, объединённых в этот буфер. */
+  /** Pending promises for calls merged into this buffer. */
   waiters: DedupWaiter[];
 }
 
-/** Логгер: форматирует сообщения и отправляет их в Telegram. */
+/** Logger: formats messages and sends them to Telegram. */
 export class Notifygram {
-  /** Очередь исходящих операций отправки в Telegram. */
+  /** Queue of outgoing Telegram send operations. */
   private queue: MessageQueue;
-  /** Текущее состояние дедупликации; null, если буфер пуст. */
+  /** Current deduplication state; null if the buffer is empty. */
   private dedupState: DedupState | null = null;
 
-  /** Клиент Telegram API, через который выполняются операции отправки. */
+  /** Telegram API client used for send operations. */
   private readonly telegram: TelegramApi;
-  /** Идентификатор чата, куда отправляются сообщения. */
+  /** Chat ID where messages are sent. */
   private readonly chatId: number;
 
-  /** Настройки логгера. */
+  /** Logger options. */
   private options!: NotifygramOptions;
-  /** Контекст, добавляемый к каждому сообщению, и минимальный уровень логирования. */
+  /** Context added to every message, plus the minimum log level. */
   private meta!: FormatMessageOptions;
-  /** Пользовательские заголовки сообщений по уровню логирования. */
+  /** Custom message titles by log level. */
   private labels: NotifygramLabels = {};
 
 
   /**
-   * Создаёт логгер с явной конфигурацией или fallback на окружение.
-   * @param options — Настройки логгера
+   * Creates a logger with explicit config or falls back to environment.
+   * @param options — Logger options
    */
   constructor(options: NotifygramOptions = {}) {
     const config = loadConfig({
@@ -131,7 +131,7 @@ export class Notifygram {
     this.labels = { ...options.labels };
   }
 
-  /** Отправляет кастомное или расширенное сообщение в Telegram. */
+  /** Sends a custom or rich message to Telegram. */
   custom(message: string, options: NotifygramCustomMessageOptions = {}): Promise<void> {
     return this.log("custom", new NotifygramCustomMessage("custom", message, {
       label: options.label ?? this.labelFor("custom"),
@@ -140,7 +140,7 @@ export class Notifygram {
     }));
   }
 
-  /** Отправляет простое сообщение в Telegram. */
+  /** Sends a plain message to Telegram. */
   message(message: string | Error, options: NotifygramMessageOptions = {}): Promise<void> {
     return this.log("message", new NotifygramNativeMessage("message", message, {
       label: options.label ?? this.labelFor("message"),
@@ -148,7 +148,7 @@ export class Notifygram {
     }));
   }
 
-  /** Отправляет информационное сообщение. */
+  /** Sends an informational message. */
   info(message: string | Error, options: NotifygramMessageOptions = {}): Promise<void> {
     return this.log("info", new NotifygramNativeMessage("info", message, {
       label: options.label ?? this.labelFor("info"),
@@ -156,7 +156,7 @@ export class Notifygram {
     }));
   }
 
-  /** Отправляет предупреждение. */
+  /** Sends a warning. */
   warning(message: string | Error, options: NotifygramMessageOptions = {}): Promise<void> {
     return this.log("warning", new NotifygramNativeMessage("warning", message, {
       label: options.label ?? this.labelFor("warning"),
@@ -164,24 +164,24 @@ export class Notifygram {
     }));
   }
 
-  /** Отправляет ошибку с дедупликацией повторов. */
+  /** Sends an error with deduplication of repeats. */
   error(message: string | Error, options: NotifygramMessageOptions = {}): Promise<void> {
     return this.logDedup("error", message, options);
   }
 
-  /** Отправляет критическую ошибку с дедупликацией повторов. */
+  /** Sends a fatal error with deduplication of repeats. */
   fatal(message: string | Error, options: NotifygramMessageOptions = {}): Promise<void> {
     return this.logDedup("fatal", message, options);
   }
 
   
-  /** Получает метаданные для сообщения. */
+  /** Returns metadata for a message. */
   get metaData() {
     return this.options.showMeta ? this.meta : undefined;
   }
 
 
-  /** Немедленно отправляет буфер дедупликации и всю очередь операций. */
+  /** Immediately flushes the deduplication buffer and the entire operation queue. */
   async flush(): Promise<void> {
     if (this.dedupState) {
       const state = this.dedupState;
@@ -195,7 +195,7 @@ export class Notifygram {
     return this.queue.flush();
   }
 
-  /** Записывает сообщение, если его уровень не ниже минимального. */
+  /** Logs a message if its level is at or above the minimum. */
   private log(level: LogLevel, notifygramMessage: NotifygramMessage): Promise<void> {
     if (!this.shouldLog(level)) {
       return Promise.resolve();
@@ -204,25 +204,25 @@ export class Notifygram {
     return this.send(notifygramMessage);
   }
 
-  /** Проверяет, проходит ли уровень сообщения фильтр minLevel. */
+  /** Checks whether the message level passes the minLevel filter. */
   private shouldLog(level: LogLevel): boolean {
     const value = LEVEL_PRIORITY[level] >= LEVEL_PRIORITY[this.options.minLevel ?? "custom"];
     return value;
   }
 
-  /** Ставит в очередь команду отправки Telegram. */
+  /** Enqueues a Telegram send operation. */
   private send(notifygramMessage: NotifygramMessage): Promise<void> {
     return this.queue.enqueue(() => notifygramMessage.send(this.telegram, this.chatId));
   }
 
-  /** Возвращает метку (label) для указанного уровня логирования. */
+  /** Returns the label for the given log level. */
   private labelFor(level: LogLevel): string | undefined {
     return this.labels[level];
   }
 
   /**
-   * Логирует с дедупликацией: одинаковые сообщения в окне объединяются
-   * и отправляются одним сообщением с счётчиком повторов.
+   * Logs with deduplication: identical messages in the window are merged
+   * and sent as a single message with a repeat count.
    */
   private logDedup(
     level: LogLevel,
@@ -280,7 +280,7 @@ export class Notifygram {
     });
   }
 
-  /** Форматирует и ставит в очередь одно сообщение с учётом счётчика повторов. */
+  /** Formats and enqueues a single message, including the repeat count. */
   private async flushDedup(state: DedupState): Promise<void> {
     if (this.dedupState === state) {
       this.dedupState = null;
@@ -311,7 +311,7 @@ export class Notifygram {
     }
   }
 
-  /** Строит ключ дедупликации из строки или ошибки. */
+  /** Builds a deduplication key from a string or error. */
   private dedupKey(message: string | Error, label?: string): string {
     const labelPrefix = label !== undefined ? `label:${label}:` : "";
 
@@ -323,7 +323,7 @@ export class Notifygram {
   }
 }
 
-/** Фабрика: создаёт экземпляр Notifygram с опциональными настройками. */
+/** Factory: creates a Notifygram instance with optional settings. */
 export function createNotifygram(options?: NotifygramOptions): Notifygram {
   return new Notifygram(options);
 }

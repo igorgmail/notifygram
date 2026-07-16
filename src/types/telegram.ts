@@ -1,5 +1,3 @@
-
-
 export interface TelegramUser {
   id: number;
   is_bot: boolean;
@@ -110,39 +108,39 @@ export interface SendMessageResult {
 }
 
 /**
- * Тип для параметра rich_message в sendRichMessage и sendRichMessageDraft.
- * Ровно одно из полей (html или markdown) должно быть передано — API требует это.
+ * Type for the rich_message parameter in sendRichMessage and sendRichMessageDraft.
+ * Exactly one of the fields (html or markdown) must be provided — required by the API.
  *
- * Примеры:
- *   { html: '<b>Жирный текст</b>' }
- *   { markdown: '**Жирный текст**', is_rtl: false }
+ * Examples:
+ *   { html: '<b>Bold text</b>' }
+ *   { markdown: '**Bold text**', is_rtl: false }
  */
 export type InputRichMessage = InputRichMessageHtml | InputRichMessageMarkdown;
 
-/** Вариант InputRichMessage с HTML-форматированием */
+/** InputRichMessage variant with HTML formatting */
 export interface InputRichMessageHtml {
-  /** HTML-контент rich-сообщения */
+  /** HTML content of the rich message */
   html: string;
   markdown?: never;
-  /** Передайте true для отображения текста справа налево */
+  /** Pass true to display text right-to-left */
   is_rtl?: boolean;
   /**
-   * Передайте true чтобы отключить автоматическое определение сущностей
-   * (URL, email, упоминания, хэштеги, команды, телефоны и т.д.)
+   * Pass true to disable automatic entity detection
+   * (URLs, emails, mentions, hashtags, commands, phone numbers, etc.)
    */
   skip_entity_detection?: boolean;
 }
 
-/** Вариант InputRichMessage с Markdown-форматированием */
+/** InputRichMessage variant with Markdown formatting */
 export interface InputRichMessageMarkdown {
   html?: never;
-  /** Markdown-контент rich-сообщения */
+  /** Markdown content of the rich message */
   markdown: string;
-  /** Передайте true для отображения текста справа налево */
+  /** Pass true to display text right-to-left */
   is_rtl?: boolean;
   /**
-   * Передайте true чтобы отключить автоматическое определение сущностей
-   * (URL, email, упоминания, хэштеги, команды, телефоны и т.д.)
+   * Pass true to disable automatic entity detection
+   * (URLs, emails, mentions, hashtags, commands, phone numbers, etc.)
    */
   skip_entity_detection?: boolean;
 }

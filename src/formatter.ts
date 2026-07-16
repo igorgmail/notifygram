@@ -8,7 +8,7 @@ export type CustomMessageMode = "html" | "markdown";
 export interface FormatRichMessageOptions {
   mode?: CustomMessageMode;
   meta?: FormatMessageOptions;
-  /** Заголовок сообщения. Если не задан — заголовок не добавляется. */
+  /** Message title. If omitted, no title is added. */
   label?: string;
 }
 
@@ -24,7 +24,7 @@ const LEVEL_LABELS: Record<LogLevel, string> = {
 };
 
 
-/* ── Общие хелперы ──────────────────────────────────────────────── */
+/* ── Shared helpers ─────────────────────────────────────────────── */
 
 function escapeHtml(value: string): string {
   return value
@@ -73,7 +73,7 @@ function formatMetaLines(
 }
 
 
-/* ── Обычные сообщения (parse_mode: HTML) ───────────────────────── */
+/* ── Regular messages (parse_mode: HTML) ────────────────────────── */
 
 function formatMeta(
   meta: FormatMessageOptions = {},
@@ -96,8 +96,8 @@ function normalizeInput(input: string | Error): { message: string; stack?: strin
 }
 
 /**
- * Собирает текст обычного лога для Telegram (parse_mode: HTML).
- * Структура: заголовок → meta → тело → stack (для error/fatal).
+ * Builds a regular log message for Telegram (parse_mode: HTML).
+ * Structure: header → meta → body → stack (for error/fatal).
  */
 export function formatMessage(
   levelName: LogLevel,
@@ -126,9 +126,9 @@ export function formatMessage(
 }
 
 
-/* ── Custom / rich сообщения ────────────────────────────────────── */
+/* ── Custom / rich messages ─────────────────────────────────────── */
 
-/** Заголовок custom/rich-сообщения (только если label передан). */
+/** Header for a custom/rich message (only if label is provided). */
 function formatRichHeader(label: string, format: MessageFormat): string {
   if (format === "markdown") {
     return `**${escapeMarkdown(label)}**\n\n`;
@@ -148,11 +148,11 @@ function formatRichMeta(
     return `${lines.join("  \n")}\n\n`;
   }
 
-  // Один <p> + <br/> — как \n между строками meta в обычных сообщениях.
+  // Single <p> + <br/> — same role as \n between meta lines in regular messages.
   return `<p>${lines.join("<br/>")}</p>`;
 }
 
-/** Обычный текст → HTML-параграфы для rich_message. */
+/** Plain text → HTML paragraphs for rich_message. */
 function formatTelegramRichHtml(rawText: string): string {
   if (!rawText) return "";
 
@@ -171,7 +171,7 @@ function formatTelegramRichHtml(rawText: string): string {
   return formattedLines.join("");
 }
 
-/** Готовый HTML → безопасный для Telegram rich_message (теги сохраняются). */
+/** Prepared HTML → safe for Telegram rich_message (tags are preserved). */
 function prepareTelegramRichHtml(htmlText: string): string {
   if (!htmlText) return "";
 
@@ -212,8 +212,8 @@ function detectMessageFormat(text: string): MessageFormat {
 }
 
 /**
- * Публичный вход для custom/rich: собирает InputRichMessage (html | markdown).
- * Структура: заголовок (опционально) → meta → тело.
+ * Public entry point for custom/rich: builds InputRichMessage (html | markdown).
+ * Structure: header (optional) → meta → body.
  */
 export function formatRichMessage(
   rawText: string,

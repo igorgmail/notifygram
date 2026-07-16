@@ -9,11 +9,11 @@
   "license": "ISC",
   "repository": {
     "type": "git",
-    "url": "https://github.com/igorfordev/notifygram.git"
+    "url": "https://github.com/igorgmail/notifygram.git"
   },
-  "homepage": "https://github.com/igorfordev/notifygram#readme",
+  "homepage": "https://github.com/igorgmail/notifygram#readme",
   "bugs": {
-      "url": "https://github.com/igorfordev/notifygram/issues"
+      "url": "https://github.com/igorgmail/notifygram/issues"
   },
   "exports": {
     ".": {
