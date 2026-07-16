@@ -1,28 +1,36 @@
 <div align="center"><img src="https://raw.githubusercontent.com/igorgmail/myproject-assets/refs/heads/main/images/notifygramlogo.webp" alt="notifygram"></div>
 
+<div align="center">
+<details><summary><b>Read this in other languages</b></summary>
+
+🇺🇸 <a href="README.md">English</a> | 🇷🇺 <a href="docs/translations/README.ru-RU.md">Русский</a>
+
+</details>
+</div>
+
 # Notifygram
 
-> Лёгкая Node.js-библиотека для уведомлений приложения в Telegram.
-> Без polling и webhook — только исходящая отправка. Подключили токен и `chatId` — и вызываете `notifygram.info(...)`.
+> A lightweight Node.js library for sending app notifications to Telegram.
+> No polling, no webhooks — outbound delivery only. Drop in a bot token and `chatId`, then call `notifygram.info(...)`.
 
-## Возможности
+## Features
 
-- **Типы уведомлений** — `custom`, `message`, `info`, `warning`, `error`, `fatal`
-- **Метаданные** — сервис, окружение, хост, timestamp; для `error` / `fatal` — stack trace
-- **Очередь отправки** — не чаще одного сообщения в секунду (лимиты Telegram)
-- **Дедупликация ошибок** — повторы `error` / `fatal` за 60 секунд объединяются
-- **Rich-сообщения** — `custom()` с HTML или Markdown
-- **Корректное завершение** — `flush()` дожидается отправки перед выходом
+- **Notification types** — `custom`, `message`, `info`, `warning`, `error`, `fatal`
+- **Metadata** — service, environment, host, timestamp; stack traces for `error` / `fatal`
+- **Send queue** — at most one message per second (Telegram rate limits)
+- **Error deduplication** — repeated `error` / `fatal` messages within 60 seconds are merged
+- **Rich messages** — `custom()` with HTML or Markdown
+- **Graceful shutdown** — `flush()` waits for pending messages before exit
 
-## Установка
+## Install
 
-Требуется Node.js 18+.
+Requires Node.js 18+.
 
 ```bash
 npm install notifygram
 ```
 
-## Быстрый старт
+## Quick start
 
 ```js
 import { createNotifygram } from "notifygram";
@@ -35,31 +43,31 @@ const notifygram = createNotifygram({
 await notifygram.info("Notifygram is ready");
 ```
 
-Нужны токен бота и ID чата — как их получить, см. [Настройка](#настройка). Если ID неизвестен: `npx notifygram init`.
+You'll need a bot token and a chat ID — see [Setup](#setup) for how to get them. If you don't know the chat ID yet, run `npx notifygram init`.
 
-## Настройка
+## Setup
 
-1. Создайте бота через [@BotFather](https://t.me/BotFather) и получите `BOT_TOKEN`.
-2. Если уведомления идут в канал или группу — добавьте бота и назначьте администратором.
+1. Create a bot with [@BotFather](https://t.me/BotFather) and copy the `BOT_TOKEN`.
+2. For a channel or group, add the bot and make it an admin.
 
-**Если знаете ID канала (чата / группы)** — передайте `token` и `chatId` в коде (как в [Быстром старте](#быстрый-старт)) или в `.env`:
+**If you already know the channel (chat / group) ID** — pass `token` and `chatId` in code (as in [Quick start](#quick-start)) or in `.env`:
 
 ```env
 TELEGRAM_BOT_TOKEN=YOUR_BOT_TOKEN
 TELEGRAM_CHAT_ID=-1001234567890
 ```
 
-**Если ID неизвестен** — выполните в консоли и следуйте подсказкам:
+**If you don't know the ID** — run this in your terminal and follow the prompts:
 
 ```bash
 npx notifygram init
 ```
 
-- Если в `.env` нет `TELEGRAM_BOT_TOKEN`, CLI попросит ввести его.
-- Отправьте любое сообщение в канал (чат / группу).
-- CLI определит канал и сохранит `TELEGRAM_CHAT_ID` и `TELEGRAM_BOT_TOKEN` в `.env`.
+- If `.env` has no `TELEGRAM_BOT_TOKEN`, the CLI will ask for it.
+- Send any message to the channel (chat / group).
+- The CLI detects the chat and writes `TELEGRAM_CHAT_ID` and `TELEGRAM_BOT_TOKEN` to `.env`.
 
-## Пример использования
+## Usage
 
 ```ts
 import { createNotifygram } from "notifygram";
@@ -81,7 +89,7 @@ await notifygram.error(new Error("DB connection failed"));
 await notifygram.fatal(new Error("Unrecoverable error"));
 ```
 
-Если `token` и `chatId` не переданы, используются `TELEGRAM_BOT_TOKEN` и `TELEGRAM_CHAT_ID` из окружения или `.env`:
+If you omit `token` and `chatId`, Notifygram falls back to `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` from the environment or `.env`:
 
 ```ts
 const notifygram = createNotifygram({
@@ -92,29 +100,29 @@ const notifygram = createNotifygram({
 ```
 
 > [!WARNING]
-> Не используйте библиотеку на фронтенде: токен бота окажется доступен в браузере.
+> Do not use this library in the browser — your bot token would be exposed to clients.
 
-Rich-сообщения (`custom`), `flush()`, дедупликация и фильтр `minLevel` — в [Дополнительно](#дополнительно).
+For rich messages (`custom`), `flush()`, deduplication, and the `minLevel` filter, see [Advanced](#advanced).
 
 ## API
 
 ### `createNotifygram(options?)`
 
-| Параметр | Тип | Описание |
+| Option | Type | Description |
 |----------|-----|----------|
-| `token` | `string` | Токен Telegram-бота. Если не передан, используется `TELEGRAM_BOT_TOKEN`. |
-| `chatId` | `number \| string` | ID чата или канала. Если не передан, используется `TELEGRAM_CHAT_ID`. |
-| `meta.service` | `string` | Имя сервиса, отображаемое в сообщениях. |
-| `meta.env` | `string` | Имя окружения. По умолчанию используется `NODE_ENV`. |
-| `meta.hostname` | `boolean` | Показывать имя хоста. По умолчанию `true`. |
-| `meta.timeStamp` | `boolean` | Показывать timestamp. По умолчанию `true`. |
-| `showMeta` | `boolean` | Показывать блок метаданных. По умолчанию `true`. |
-| `minLevel` | `LogLevel` | Минимальный уровень логирования; сообщения ниже порога не отправляются. |
-| `labels` | `NotifygramLabels` | Пользовательские заголовки сообщений по уровню логирования. |
+| `token` | `string` | Telegram bot token. Falls back to `TELEGRAM_BOT_TOKEN` if omitted. |
+| `chatId` | `number \| string` | Chat or channel ID. Falls back to `TELEGRAM_CHAT_ID` if omitted. |
+| `meta.service` | `string` | Service name shown in messages. |
+| `meta.env` | `string` | Environment name. Defaults to `NODE_ENV`. |
+| `meta.hostname` | `boolean` | Include the hostname. Defaults to `true`. |
+| `meta.timeStamp` | `boolean` | Include a timestamp. Defaults to `true`. |
+| `showMeta` | `boolean` | Show the metadata block. Defaults to `true`. |
+| `minLevel` | `LogLevel` | Minimum log level; messages below this threshold are not sent. |
+| `labels` | `NotifygramLabels` | Custom message titles per log level. |
 
-### Методы
+### Methods
 
-Все методы возвращают `Promise<void>`. Ошибки отправки в Telegram не пробрасываются в приложение: Notifygram пишет их в `stderr`, чтобы логирование не роняло основной процесс. Ошибки конфигурации могут быть выброшены при создании экземпляра.
+All methods return `Promise<void>`. Telegram delivery failures are not thrown into your app — Notifygram writes them to `stderr` so logging never takes down the main process. Configuration errors may still be thrown when you create an instance.
 
 - `notifygram.message(message: string | Error)`
 - `notifygram.info(message: string | Error)`
@@ -122,43 +130,43 @@ Rich-сообщения (`custom`), `flush()`, дедупликация и фи�
 - `notifygram.error(message: string | Error)`
 - `notifygram.fatal(message: string | Error)`
 - `notifygram.custom(message: string, options?: { mode?: "html" | "markdown" })`
-- `notifygram.flush()` — дождаться отправки всех сообщений в Telegram
+- `notifygram.flush()` — wait until all queued messages have been sent to Telegram
 
-### Экспорты
+### Exports
 
-- `createNotifygram(options?)` — фабрика экземпляра `Notifygram`.
-- `Notifygram` — класс логгера.
-- `ConfigError`, `TelegramApiError`, `TelegramNetworkError` — ошибки, полезные для обработки сбоев конфигурации и Telegram API.
-- `LogLevel`, `NotifygramOptions`, `NotifygramMetaOptions`, `NotifygramLabels`, `NotifygramMessageOptions`, `NotifygramCustomMessageOptions`, `CustomMessageMode` — публичные типы библиотеки.
+- `createNotifygram(options?)` — factory for a `Notifygram` instance.
+- `Notifygram` — the logger class.
+- `ConfigError`, `TelegramApiError`, `TelegramNetworkError` — errors useful when handling configuration or Telegram API failures.
+- `LogLevel`, `NotifygramOptions`, `NotifygramMetaOptions`, `NotifygramLabels`, `NotifygramMessageOptions`, `NotifygramCustomMessageOptions`, `CustomMessageMode` — public library types.
 
-## Дополнительно
+## Advanced
 
 <details>
-<summary>Приоритет настроек, переменные окружения, <code>custom</code>, <code>flush</code>, дедупликация, <code>minLevel</code></summary>
+<summary>Config precedence, environment variables, <code>custom</code>, <code>flush</code>, deduplication, <code>minLevel</code></summary>
 
-### Приоритет настроек
+### Config precedence
 
-Сверху вниз — что важнее:
+Highest priority first:
 
-1. Параметры в коде — `createNotifygram({ token, chatId })`
-2. Переменные окружения — `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`
-3. Файл `.env` в корне проекта
+1. Options in code — `createNotifygram({ token, chatId })`
+2. Environment variables — `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`
+3. A `.env` file at the project root
 
 > [!TIP]
-> Если `token` и `chatId` указаны в коде, они используются всегда, даже если в `.env` лежат другие значения.
+> When `token` and `chatId` are set in code, they always win — even if `.env` has different values.
 
-### Переменные окружения
+### Environment variables
 
-| Переменная | Обязательна | Описание |
+| Variable | Required | Description |
 |------------|-------------|---------|
-| `TELEGRAM_BOT_TOKEN` | Да, если `token` не передан | Токен бота |
-| `TELEGRAM_CHAT_ID` | Да, если `chatId` не передан | ID целевого канала |
-| `SERVICE_NAME` | Нет | Сервис по умолчанию |
-| `NODE_ENV` | Нет | Окружение по умолчанию |
+| `TELEGRAM_BOT_TOKEN` | Yes, unless `token` is passed | Bot token |
+| `TELEGRAM_CHAT_ID` | Yes, unless `chatId` is passed | Target chat / channel ID |
+| `SERVICE_NAME` | No | Default service name |
+| `NODE_ENV` | No | Default environment name |
 
-### Кастомные сообщения
+### Custom messages
 
-`custom()` принимает строку и отправляет её как rich-сообщение через Telegram API `sendRichMessage`. Разметка (HTML или Markdown) определяется автоматически или задаётся явно через `mode`.
+`custom()` takes a string and sends it as a rich message via the Telegram API `sendRichMessage`. Markup (HTML or Markdown) is detected automatically, or you can set it explicitly with `mode`.
 
 ```ts
 await notifygram.custom("Manual notification");
@@ -172,7 +180,7 @@ await notifygram.custom(`
 ```
 
 <details>
-  <summary>Пример</summary>
+  <summary>Example</summary>
 
   ```ts
 const notifygramOrder = createNotifygram({
@@ -209,60 +217,60 @@ notifygramOrder.custom(`
 `);
 ```
 
-<div align="left" width="100px"><img src="https://raw.githubusercontent.com/igorgmail/myproject-assets/refs/heads/main/images/message-1.webp" alt="custom-message"></div>
+<div align="left" width="100"><img src="https://raw.githubusercontent.com/igorgmail/myproject-assets/refs/heads/main/images/message-1.webp" alt="custom-message"></div>
 </details>
 
 
-### Когда вызывать `flush()`
+### When to call `flush()`
 
-`flush()` дожидается, пока все сообщения уйдут в Telegram.
+`flush()` waits until every queued message has been delivered to Telegram.
 
-Вызывайте его в конце короткого скрипта — иначе процесс может завершиться раньше, чем сообщения отправятся:
+Call it at the end of a short-lived script — otherwise the process may exit before messages go out:
 
 ```ts
 await notifygram.info("Backup done");
 await notifygram.error(new Error("Disk full"));
 
-await notifygram.flush(); // подождать отправку, потом можно выходить
+await notifygram.flush(); // wait for delivery, then it's safe to exit
 ```
 
-На обычном сервере вызывать не нужно: сообщения уходят сами в фоне. Там `flush()` полезен только при остановке приложения.
+On a long-running server you usually don't need it — messages are sent in the background. Use `flush()` there only during shutdown.
 
-### Дедупликация
+### Deduplication
 
-Применяется только к `error()` и `fatal()`. Каждый вызов `message()`, `info()` и `warning()` отправляется отдельно.
+Applies only to `error()` and `fatal()`. Every `message()`, `info()`, and `warning()` call is sent on its own.
 
-Одинаковые сообщения в течение 60 секунд группируются; после 2 секунд тишины (или вызова `flush()`) отправляется одно сообщение, например: `ERROR (3 times in the last 60 seconds)`.
+Identical messages within a 60-second window are grouped; after 2 seconds of silence (or a `flush()` call), a single message is sent, e.g. `ERROR (3 times in the last 60 seconds)`.
 
-### Фильтр `minLevel`
+### `minLevel` filter
 
-Минимальный уровень важности, с которого сообщения отправляются в Telegram. Всё «ниже» порога молча отбрасывается.
+Minimum severity required for a message to be sent to Telegram. Anything below the threshold is silently dropped.
 
-Порядок уровней: `custom` → `message` → `info` → `warning` → `error` → `fatal`.
+Level order: `custom` → `message` → `info` → `warning` → `error` → `fatal`.
 
-| `minLevel` | Что отправляется |
+| `minLevel` | What gets sent |
 |------------|------------------|
-| `"custom"` (по умолчанию) | custom, message, info, warning, error, fatal |
+| `"custom"` (default) | custom, message, info, warning, error, fatal |
 | `"message"` | message, info, warning, error, fatal |
 | `"info"` | info, warning, error, fatal |
 | `"warning"` | warning, error, fatal |
 | `"error"` | error, fatal |
-| `"fatal"` | только fatal |
+| `"fatal"` | fatal only |
 
 ```ts
 const notifygram = createNotifygram({
   meta: {
     service: "payments",
   },
-  minLevel: "error", // в production — без info и warning
+  minLevel: "error", // production — skip info and warning
 });
 
-await notifygram.info("Server started"); // не отправится
-await notifygram.error("DB failed");     // отправится
+await notifygram.info("Server started"); // not sent
+await notifygram.error("DB failed");     // sent
 ```
 
 </details>
 
-## Лицензия
+## License
 
 [ISC](./LICENSE)
