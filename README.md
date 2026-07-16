@@ -1,4 +1,4 @@
-<div align="center"><img src="https://raw.githubusercontent.com/igorgmail/myproject-assets/refs/heads/main/images/notifygramlogo.webp" alt="grammY"></a></h1></div>
+<div align="center"><img src="https://raw.githubusercontent.com/igorgmail/myproject-assets/refs/heads/main/images/notifygramlogo.webp" alt="grammY"></div>
 
 # Notifygram
 
@@ -170,6 +170,47 @@ await notifygram.custom(`
   mode: "html",
 });
 ```
+
+<details>
+  <summary>Пример</summary>
+
+  ```ts
+const notifygramOrder = createNotifygram({
+  meta : {
+    service: "Online store",
+    hostname: false,
+  },
+  labels: {
+    custom: "Order",
+  },
+  token: "8438725980:AAH5BjEvpRMVOXVgne4YP1uau6-0TR3GKNE",
+  chatId: -1003962530412,
+});
+
+
+notifygramOrder.custom(`
+<h2>You have a new order 💰.</h2>
+<details>
+  <summary>Order details</summary>
+  <table bordered striped>
+    <tr><th>Item</th><th>Quantity</th><th>Total cost</th></tr>
+    <tr>
+      <td>Item 1</td>
+      <td>2</td>
+      <td>100 USD</td>
+    </tr>
+    <tr>
+      <td>Item 2</td>
+      <td>1</td>
+      <td>50 USD</td>
+    </tr>
+  </table>
+</details>
+`);
+```
+</details>
+
+<div align="left" width="100px"><img src="https://raw.githubusercontent.com/igorgmail/myproject-assets/refs/heads/main/images/message-1.webp" alt="grammY"></div>
 
 ### Когда вызывать `flush()`
 
