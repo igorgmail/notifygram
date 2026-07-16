@@ -1,4 +1,4 @@
-<div align="center"><img src="https://raw.githubusercontent.com/igorgmail/myproject-assets/refs/heads/main/images/notifygramlogo.webp" alt="grammY"></div>
+<div align="center"><img src="https://raw.githubusercontent.com/igorgmail/myproject-assets/refs/heads/main/images/notifygramlogo.webp" alt="notifygram"></div>
 
 # Notifygram
 
@@ -208,9 +208,10 @@ notifygramOrder.custom(`
 </details>
 `);
 ```
+
+<div align="left" width="100px"><img src="https://raw.githubusercontent.com/igorgmail/myproject-assets/refs/heads/main/images/message-1.webp" alt="custom-message"></div>
 </details>
 
-<div align="left" width="100px"><img src="https://raw.githubusercontent.com/igorgmail/myproject-assets/refs/heads/main/images/message-1.webp" alt="grammY"></div>
 
 ### Когда вызывать `flush()`
 
