@@ -1,6 +1,9 @@
+<div align="center"><img src="https://raw.githubusercontent.com/igorgmail/myproject-assets/refs/heads/main/images/notifygramlogo.webp" alt="grammY"></a></h1></div>
+
 # Notifygram
 
-Лёгкая Node.js-библиотека для отправки уведомлений приложения в Telegram-канал.
+> Лёгкая Node.js-библиотека для уведомлений приложения в Telegram.
+> Без polling и webhook — только исходящая отправка. Подключили токен и `chatId` — и вызываете `notifygram.info(...)`.
 
 ## Возможности
 
