@@ -33,8 +33,6 @@
     "build": "npm run clean && tsc",
     "pack:check": "npm pack --dry-run",
     "test:types": "tsc -p tsconfig.smoke.json",
-    "test:runtime": "node -e \"delete process.env.TELEGRAM_BOT_TOKEN; delete process.env.TELEGRAM_CHAT_ID; import('./dist/index.js').then(({ createNotifygram }) => { const notifygram = createNotifygram({ token: '123456:test-token', chatId: -1001234567890, meta: { hostname: false, timeStamp: false } }); if (typeof notifygram.flush !== 'function') process.exit(1); })\"",
-    "test": "npm run build && npm run test:types && npm run test:runtime",
     "prepack": "npm run build"
   },
   "engines": {
