@@ -26,7 +26,8 @@
   },
   "files": [
     "dist",
-    ".env.example"
+    ".env.example",
+    "LICENSE"
   ],
   "scripts": {
     "clean": "node -e \"fs.rmSync('dist', { recursive: true, force: true })\"",
