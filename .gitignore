@@ -145,5 +145,6 @@ vite.config.ts.timestamp-*
 # Users
 .cursor/
 CURSOR.md
+PLAYBOOK.md
 .vscode
 graphify-out

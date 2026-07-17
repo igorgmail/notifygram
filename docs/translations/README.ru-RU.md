@@ -96,9 +96,9 @@ const notifygram = createNotifygram({
 ```
 
 > [!WARNING]
-> Не используйте библиотеку на фронтенде: токен бота окажется доступен в браузере.
+> Если вы используете библиотеку на фронтенде: токен бота окажется доступен в браузере.
 
-Rich-сообщения (`custom`), `flush()`, дедупликация и фильтр `minLevel` — в [Дополнительно](#дополнительно).
+Rich-сообщения (`custom`), `flush()`, дедупликация и фильтр `minLevel`, изменение `labels` — в [Дополнительно](#дополнительно).
 
 ## API
 
@@ -138,7 +138,7 @@ Rich-сообщения (`custom`), `flush()`, дедупликация и фи�
 ## Дополнительно
 
 <details>
-<summary>Приоритет настроек, переменные окружения, <code>custom</code>, <code>flush</code>, дедупликация, <code>minLevel</code></summary>
+<summary>Приоритет настроек, переменные окружения, <code>custom</code>, <code>labels</code>, <code>flush</code>, дедупликация, <code>minLevel</code></summary>
 
 ### Приоритет настроек
 
@@ -148,8 +148,10 @@ Rich-сообщения (`custom`), `flush()`, дедупликация и фи�
 2. Переменные окружения — `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`
 3. Файл `.env` в корне проекта
 
+
 > [!TIP]
 > Если `token` и `chatId` указаны в коде, они используются всегда, даже если в `.env` лежат другие значения.
+
 
 ### Переменные окружения
 
@@ -216,6 +218,29 @@ notifygramOrder.custom(`
 <div align="left" width="100"><img src="https://raw.githubusercontent.com/igorgmail/myproject-assets/refs/heads/main/images/message-1.webp" alt="custom-message"></div>
 </details>
 
+### Изменение заголовков сообщений `labels`
+
+Заголовки стандартных и кастомных сообщений можно задать двумя способами.
+
+**1. При инициализации** — через `labels` по уровню (`custom`, `message`, `info`, `warning`, `error`, `fatal`):
+
+```ts
+const notifygram = createNotifygram({
+  labels: {
+    info: "Information",
+    warning: "WARNING",
+    error: "ERROR",
+    custom: "Order",
+  },
+});
+```
+
+**2. При отправке** — через `label` в опциях сообщения (имеет приоритет над `labels`):
+
+```ts
+await notifygram.info("Test message", { label: "INFO LABEL" });
+await notifygram.custom("<b>New order</b>", { label: "Order #42" });
+```
 
 ### Когда вызывать `flush()`
 
