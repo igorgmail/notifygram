@@ -63,7 +63,7 @@ export class MessageQueue {
   /**
    * Processes the queue: runs operations one by one,
    * keeping MIN_INTERVAL_MS between sends.
-   * On error, logs to stderr and continues without crashing the host app.
+   * On error, logs with console.error and continues without crashing the host app.
    */
   private async processQueue(): Promise<void> {
     if (this.processing) {
@@ -90,8 +90,8 @@ export class MessageQueue {
         } catch (error) {
           const message =
             error instanceof Error ? error.message : String(error);
-          process.stderr.write(
-            `[notifygram] Failed to send operation: ${message}\n`
+          console.error(
+            `[notifygram] Failed to send operation: ${message}`
           );
           // Logging must not crash the host application.
         } finally {

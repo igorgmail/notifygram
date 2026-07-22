@@ -1,6 +1,8 @@
-import { existsSync, readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { ConfigError } from "./errors.js";
+import {
+  ProcessEnvironmentSource,
+  type EnvironmentSource,
+} from "./env.js";
 
 import type { AppConfig } from "./types/app.js";
 
@@ -10,23 +12,25 @@ const INIT_HINT =
 export { ConfigError } from "./errors.js";
 
 export interface LoadConfigOptions {
+  /** Explicit bot token; otherwise read from `env`. */
   token?: string;
+  /** Explicit chat ID; otherwise read from `env`. */
   chatId?: number | string;
+  /**
+   * Env source for `TELEGRAM_*` fallbacks.
+   * Defaults to `ProcessEnvironmentSource` when omitted.
+   */
+  env?: EnvironmentSource;
 }
 
 export function loadConfig(options: LoadConfigOptions = {}): AppConfig | never {
-  const hasExplicitConfig =
-    options.token !== undefined && options.chatId !== undefined;
+  const env = options.env ?? new ProcessEnvironmentSource();
 
-  if (!hasExplicitConfig) {
-    loadProjectEnv();
-  }
-
-  const token = options.token?.trim() || process.env.TELEGRAM_BOT_TOKEN?.trim();
+  const token = options.token?.trim() || env.get("TELEGRAM_BOT_TOKEN")?.trim();
   const chatIdRaw =
     options.chatId !== undefined
       ? String(options.chatId).trim()
-      : process.env.TELEGRAM_CHAT_ID?.trim();
+      : env.get("TELEGRAM_CHAT_ID")?.trim();
 
   if (!token) {
     throw new ConfigError(
@@ -50,43 +54,9 @@ export function loadConfig(options: LoadConfigOptions = {}): AppConfig | never {
   return { token, chatId };
 }
 
-export function loadProjectEnv(
-  envPath = resolve(process.cwd(), ".env")
-): void {
-  if (!existsSync(envPath)) {
-    return;
-  }
-
-  const content = readFileSync(envPath, "utf8");
-  for (const line of content.split(/\r?\n/)) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#")) {
-      continue;
-    }
-
-    const separator = trimmed.indexOf("=");
-    if (separator <= 0) {
-      continue;
-    }
-
-    const key = trimmed.slice(0, separator).trim();
-    if (!key || process.env[key] !== undefined) {
-      continue;
-    }
-
-    let value = trimmed.slice(separator + 1).trim();
-    if (
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
-      value = value.slice(1, -1);
-    }
-
-    process.env[key] = value;
-  }
-}
-
-export function loadTokenFromEnv(): string | undefined {
-  const token = process.env.TELEGRAM_BOT_TOKEN?.trim();
+export function loadTokenFromEnv(
+  env: EnvironmentSource = new ProcessEnvironmentSource()
+): string | undefined {
+  const token = env.get("TELEGRAM_BOT_TOKEN")?.trim();
   return token || undefined;
 }

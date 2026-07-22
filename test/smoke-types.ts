@@ -23,7 +23,6 @@ const options: NotifygramOptions = {
   meta: {
     service: "smoke-test",
     env: "test",
-    hostname: false,
     timeStamp: false,
   },
 };

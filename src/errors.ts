@@ -1,6 +1,6 @@
 import type { TelegramResponseParameters } from "./types/telegram.js";
 
-/** Thrown when required Notifygram environment configuration is missing or invalid. */
+/** Thrown when required Notifygram configuration is missing or invalid. */
 export class ConfigError extends Error {
   constructor(message: string) {
     super(message);

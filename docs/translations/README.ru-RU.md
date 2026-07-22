@@ -48,7 +48,7 @@ await notifygram.info("Notifygram is ready");
 1. Создайте бота через [@BotFather](https://t.me/BotFather) и получите `BOT_TOKEN`.
 2. Если уведомления идут в канал или группу — добавьте бота и назначьте администратором.
 
-**Если знаете ID канала (чата / группы)** — передайте `token` и `chatId` в коде (как в [Быстром старте](#быстрый-старт)) или в `.env`:
+**Если знаете ID канала (чата / группы)** — передайте `token` и `chatId` в коде (как в [Быстром старте](#быстрый-старт)) или загрузите их в окружение процесса (например `node --env-file=.env`, dotenv или переменные хоста):
 
 ```env
 TELEGRAM_BOT_TOKEN=YOUR_BOT_TOKEN
@@ -87,7 +87,7 @@ await notifygram.error(new Error("DB connection failed"));
 await notifygram.fatal(new Error("Unrecoverable error"));
 ```
 
-Если `token` и `chatId` не переданы, используются `TELEGRAM_BOT_TOKEN` и `TELEGRAM_CHAT_ID` из окружения или `.env`:
+Если `token` и `chatId` не переданы, используются `TELEGRAM_BOT_TOKEN` и `TELEGRAM_CHAT_ID` из окружения (`process.env` в Node / SSR):
 
 ```ts
 const notifygram = createNotifygram({
@@ -97,8 +97,32 @@ const notifygram = createNotifygram({
 });
 ```
 
+Во Vite / Vue / React передайте значения из env бандлера явно или укажите свой источник `env`:
+
+```ts
+const notifygram = createNotifygram({
+  token: import.meta.env.VITE_TELEGRAM_BOT_TOKEN,
+  chatId: import.meta.env.VITE_TELEGRAM_CHAT_ID,
+});
+
+// или сопоставьте ключи сами:
+const notifygramFromEnv = createNotifygram({
+  env: {
+    get(key) {
+      const map: Record<string, string | undefined> = {
+        TELEGRAM_BOT_TOKEN: import.meta.env.VITE_TELEGRAM_BOT_TOKEN,
+        TELEGRAM_CHAT_ID: import.meta.env.VITE_TELEGRAM_CHAT_ID,
+        SERVICE_NAME: import.meta.env.VITE_SERVICE_NAME,
+        NODE_ENV: import.meta.env.MODE,
+      };
+      return map[key];
+    },
+  },
+});
+```
+
 > [!WARNING]
-> Если вы используете библиотеку на фронтенде: токен бота окажется доступен в браузере.
+> Если вы используете библиотеку на фронтенде, токен бота окажется доступен в браузере. Этот риск — ответственность пользователя.
 
 Rich-сообщения (`custom`), `flush()`, дедупликация и фильтр `minLevel`, изменение `labels` — в [Дополнительно](#дополнительно).
 
@@ -110,9 +134,10 @@ Rich-сообщения (`custom`), `flush()`, дедупликация и фи�
 |----------|-----|----------|
 | `token` | `string` | Токен Telegram-бота. Если не передан, используется `TELEGRAM_BOT_TOKEN`. |
 | `chatId` | `number \| string` | ID чата или канала. Если не передан, используется `TELEGRAM_CHAT_ID`. |
+| `env` | `EnvironmentSource` | Свой источник env (`get(key)`). По умолчанию — `process.env`, если доступен. |
 | `meta.service` | `string` | Имя сервиса, отображаемое в сообщениях. |
 | `meta.env` | `string` | Имя окружения. По умолчанию используется `NODE_ENV`. |
-| `meta.hostname` | `boolean` | Показывать имя хоста. По умолчанию `true`. |
+| `meta.hostname` | `string` | Опциональная метка хоста. Если не задана — не показывается. |
 | `meta.timeStamp` | `boolean` | Показывать timestamp. По умолчанию `true`. |
 | `showMeta` | `boolean` | Показывать блок метаданных. По умолчанию `true`. |
 | `minLevel` | `LogLevel` | Минимальный уровень логирования; сообщения ниже порога не отправляются. |
@@ -120,7 +145,7 @@ Rich-сообщения (`custom`), `flush()`, дедупликация и фи�
 
 ### Методы
 
-Все методы возвращают `Promise<void>`. Ошибки отправки в Telegram не пробрасываются в приложение: Notifygram пишет их в `stderr`, чтобы логирование не роняло основной процесс. Ошибки конфигурации могут быть выброшены при создании экземпляра.
+Все методы возвращают `Promise<void>`. Ошибки отправки в Telegram не пробрасываются в приложение: Notifygram пишет их через `console.error`, чтобы логирование не роняло основной процесс. Ошибки конфигурации могут быть выброшены при создании экземпляра.
 
 - `notifygram.message(message: string | Error)`
 - `notifygram.info(message: string | Error)`
@@ -134,8 +159,9 @@ Rich-сообщения (`custom`), `flush()`, дедупликация и фи�
 
 - `createNotifygram(options?)` — фабрика экземпляра `Notifygram`.
 - `Notifygram` — класс логгера.
+- `ProcessEnvironmentSource` — источник `EnvironmentSource` по умолчанию на базе `process.env`.
 - `ConfigError`, `TelegramApiError`, `TelegramNetworkError` — ошибки, полезные для обработки сбоев конфигурации и Telegram API.
-- `LogLevel`, `NotifygramOptions`, `NotifygramMetaOptions`, `NotifygramLabels`, `NotifygramMessageOptions`, `NotifygramCustomMessageOptions`, `CustomMessageMode` — публичные типы библиотеки.
+- `EnvironmentSource`, `LogLevel`, `NotifygramOptions`, `NotifygramMetaOptions`, `NotifygramLabels`, `NotifygramMessageOptions`, `NotifygramCustomMessageOptions`, `CustomMessageMode` — публичные типы библиотеки.
 
 ## Дополнительно
 
@@ -147,11 +173,11 @@ Rich-сообщения (`custom`), `flush()`, дедупликация и фи�
 Сверху вниз — что важнее:
 
 1. Параметры в коде — `createNotifygram({ token, chatId })`
-2. Переменные окружения — `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`
-3. Файл `.env` в корне проекта
+2. `EnvironmentSource` — свой `env.get(...)` или `ProcessEnvironmentSource` по умолчанию (`process.env`)
 
+Библиотека **сама не читает** файл `.env`. Загружайте переменные рантаймом (`node --env-file=.env`, dotenv, конфиг хоста) или используйте `npx notifygram init`, который пишет `.env` для CLI/настройки. Бандлеры (Vite и аналоги) подставляют env на сборке — передайте эти значения через опции или свой `env`.
 
-> Если `token` и `chatId` указаны в коде, они используются всегда, даже если в `.env` лежат другие значения.
+> Если `token` и `chatId` указаны в коде, они используются всегда, даже если в окружении лежат другие значения.
 
 
 ### Переменные окружения
@@ -185,7 +211,7 @@ await notifygram.custom(`
 const notifygramOrder = createNotifygram({
   meta : {
     service: "Online store",
-    hostname: false,
+    hostname: "web-1",
   },
   labels: {
     custom: "Order",

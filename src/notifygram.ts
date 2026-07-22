@@ -1,5 +1,5 @@
-import os from "node:os";
 import { loadConfig } from "./config.js";
+import { ProcessEnvironmentSource } from "./env.js";
 import { MessageQueue } from "./queue.js";
 import {
   NotifygramNativeMessage,
@@ -40,7 +40,11 @@ interface DedupWaiter {
 }
 
 type NotifygramDefaultOptions = Required<Pick<NotifygramOptions, "minLevel" | "showMeta">> & {
-  meta: Required<NonNullable<NotifygramOptions["meta"]>>;
+  meta: {
+    service: string;
+    env: string;
+    timeStamp: boolean;
+  };
 };
 
 const DEFAULT_NOTIFYGRAM_OPTIONS: NotifygramDefaultOptions = {
@@ -49,7 +53,6 @@ const DEFAULT_NOTIFYGRAM_OPTIONS: NotifygramDefaultOptions = {
   meta: {
     service: "",
     env: "",
-    hostname: true,
     timeStamp: true,
   },
 };
@@ -100,13 +103,15 @@ export class Notifygram {
 
 
   /**
-   * Creates a logger with explicit config or falls back to environment.
+   * Creates a logger with explicit `token`/`chatId` or falls back via `options.env`
+   * (default: `ProcessEnvironmentSource`).
    * @param options — Logger options
    */
   constructor(options: NotifygramOptions = {}) {
     const config = loadConfig({
       token: options.token,
       chatId: options.chatId,
+      env: options.env,
     });
 
     this.telegram = new TelegramApi(config.token);
@@ -117,10 +122,12 @@ export class Notifygram {
   }
 
   init(options: NotifygramOptions = {}) {
+    const env = options.env ?? new ProcessEnvironmentSource();
+
     this.meta = {
-      service: options.meta?.service ?? process.env.SERVICE_NAME ?? DEFAULT_NOTIFYGRAM_OPTIONS.meta.service,
-      env: options.meta?.env ?? process.env.NODE_ENV ?? DEFAULT_NOTIFYGRAM_OPTIONS.meta.env,
-      hostname: (options.meta?.hostname ?? DEFAULT_NOTIFYGRAM_OPTIONS.meta.hostname) ? os.hostname() : undefined,
+      service: options.meta?.service ?? env.get("SERVICE_NAME") ?? DEFAULT_NOTIFYGRAM_OPTIONS.meta.service,
+      env: options.meta?.env ?? env.get("NODE_ENV") ?? DEFAULT_NOTIFYGRAM_OPTIONS.meta.env,
+      hostname: options.meta?.hostname,
       timeStamp: options.meta?.timeStamp ?? DEFAULT_NOTIFYGRAM_OPTIONS.meta.timeStamp,
     };
 

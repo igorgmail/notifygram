@@ -50,7 +50,7 @@ You'll need a bot token and a chat ID — see [Setup](#setup) for how to get the
 1. Create a bot with [@BotFather](https://t.me/BotFather) and copy the `BOT_TOKEN`.
 2. For a channel or group, add the bot and make it an admin.
 
-**If you already know the channel (chat / group) ID** — pass `token` and `chatId` in code (as in [Quick start](#quick-start)) or in `.env`:
+**If you already know the channel (chat / group) ID** — pass `token` and `chatId` in code (as in [Quick start](#quick-start)), or load them into the process environment (for example `node --env-file=.env`, dotenv, or your host's env vars):
 
 ```env
 TELEGRAM_BOT_TOKEN=YOUR_BOT_TOKEN
@@ -89,7 +89,7 @@ await notifygram.error(new Error("DB connection failed"));
 await notifygram.fatal(new Error("Unrecoverable error"));
 ```
 
-If you omit `token` and `chatId`, Notifygram falls back to `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` from the environment or `.env`:
+If you omit `token` and `chatId`, Notifygram falls back to `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` from the environment (`process.env` in Node / SSR):
 
 ```ts
 const notifygram = createNotifygram({
@@ -99,8 +99,32 @@ const notifygram = createNotifygram({
 });
 ```
 
+On Vite / Vue / React, pass values from your bundler env explicitly, or provide a custom `env` source:
+
+```ts
+const notifygram = createNotifygram({
+  token: import.meta.env.VITE_TELEGRAM_BOT_TOKEN,
+  chatId: import.meta.env.VITE_TELEGRAM_CHAT_ID,
+});
+
+// or map keys yourself:
+const notifygramFromEnv = createNotifygram({
+  env: {
+    get(key) {
+      const map: Record<string, string | undefined> = {
+        TELEGRAM_BOT_TOKEN: import.meta.env.VITE_TELEGRAM_BOT_TOKEN,
+        TELEGRAM_CHAT_ID: import.meta.env.VITE_TELEGRAM_CHAT_ID,
+        SERVICE_NAME: import.meta.env.VITE_SERVICE_NAME,
+        NODE_ENV: import.meta.env.MODE,
+      };
+      return map[key];
+    },
+  },
+});
+```
+
 > [!WARNING]
-> Do not use this library in the browser — your bot token would be exposed to clients.
+> If you use this library in the browser, the bot token will be visible to clients. That risk is your responsibility.
 
 For rich messages (`custom`), `flush()`, deduplication, and the `minLevel` filter, see [Advanced](#advanced).
 
@@ -112,9 +136,10 @@ For rich messages (`custom`), `flush()`, deduplication, and the `minLevel` filte
 |----------|-----|----------|
 | `token` | `string` | Telegram bot token. Falls back to `TELEGRAM_BOT_TOKEN` if omitted. |
 | `chatId` | `number \| string` | Chat or channel ID. Falls back to `TELEGRAM_CHAT_ID` if omitted. |
+| `env` | `EnvironmentSource` | Custom env reader (`get(key)`). Defaults to `process.env` when available. |
 | `meta.service` | `string` | Service name shown in messages. |
 | `meta.env` | `string` | Environment name. Defaults to `NODE_ENV`. |
-| `meta.hostname` | `boolean` | Include the hostname. Defaults to `true`. |
+| `meta.hostname` | `string` | Optional hostname label. Omitted when not set. |
 | `meta.timeStamp` | `boolean` | Include a timestamp. Defaults to `true`. |
 | `showMeta` | `boolean` | Show the metadata block. Defaults to `true`. |
 | `minLevel` | `LogLevel` | Minimum log level; messages below this threshold are not sent. |
@@ -122,7 +147,7 @@ For rich messages (`custom`), `flush()`, deduplication, and the `minLevel` filte
 
 ### Methods
 
-All methods return `Promise<void>`. Telegram delivery failures are not thrown into your app — Notifygram writes them to `stderr` so logging never takes down the main process. Configuration errors may still be thrown when you create an instance.
+All methods return `Promise<void>`. Telegram delivery failures are not thrown into your app — Notifygram logs them with `console.error` so logging never takes down the main process. Configuration errors may still be thrown when you create an instance.
 
 - `notifygram.message(message: string | Error)`
 - `notifygram.info(message: string | Error)`
@@ -136,8 +161,9 @@ All methods return `Promise<void>`. Telegram delivery failures are not thrown in
 
 - `createNotifygram(options?)` — factory for a `Notifygram` instance.
 - `Notifygram` — the logger class.
+- `ProcessEnvironmentSource` — default `EnvironmentSource` backed by `process.env`.
 - `ConfigError`, `TelegramApiError`, `TelegramNetworkError` — errors useful when handling configuration or Telegram API failures.
-- `LogLevel`, `NotifygramOptions`, `NotifygramMetaOptions`, `NotifygramLabels`, `NotifygramMessageOptions`, `NotifygramCustomMessageOptions`, `CustomMessageMode` — public library types.
+- `EnvironmentSource`, `LogLevel`, `NotifygramOptions`, `NotifygramMetaOptions`, `NotifygramLabels`, `NotifygramMessageOptions`, `NotifygramCustomMessageOptions`, `CustomMessageMode` — public library types.
 
 ## Advanced
 
@@ -149,11 +175,12 @@ All methods return `Promise<void>`. Telegram delivery failures are not thrown in
 Highest priority first:
 
 1. Options in code — `createNotifygram({ token, chatId })`
-2. Environment variables — `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`
-3. A `.env` file at the project root
+2. `EnvironmentSource` — custom `env.get(...)` or the default `ProcessEnvironmentSource` (`process.env`)
+
+The library does **not** read a `.env` file itself. Load env vars with your runtime (`node --env-file=.env`, dotenv, host config), or use `npx notifygram init` which writes `.env` for CLI/setup. Bundlers (Vite and similar) inject their own env at build time — pass those values via options or a custom `env` source.
 
 > [!TIP]
-> When `token` and `chatId` are set in code, they always win — even if `.env` has different values.
+> When `token` and `chatId` are set in code, they always win — even if the environment has different values.
 
 ### Environment variables
 
@@ -186,7 +213,7 @@ await notifygram.custom(`
 const notifygramOrder = createNotifygram({
   meta : {
     service: "Online store",
-    hostname: false,
+    hostname: "web-1",
   },
   labels: {
     custom: "Order",

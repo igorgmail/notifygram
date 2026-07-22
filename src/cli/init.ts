@@ -4,10 +4,11 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import readline from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
-import { loadProjectEnv, loadTokenFromEnv } from "../config.js";
+import { loadTokenFromEnv } from "../config.js";
 import { TelegramApiError } from "../errors.js";
 import { TelegramApi } from "../telegram.js";
 import { waitForChannel } from "./channel.js";
+import { loadProjectEnv } from "./env-file.js";
 import { clr } from "./utils.js";
 
 const supportsAnsi = process.stdout.isTTY && !process.env.NO_COLOR;
