@@ -30,6 +30,7 @@
     "LICENSE"
   ],
   "scripts": {
+    "test" : "node --env-file=.env testapp/app.js",
     "clean": "node -e \"fs.rmSync('dist', { recursive: true, force: true })\"",
     "build": "npm run clean && tsc",
     "pack:check": "npm pack --dry-run",
@@ -41,6 +42,10 @@
   },
   "keywords": [
     "telegram",
+    "telegram-bot",
+    "telegram-bot-api",
+    "bot",
+    "typescript",
     "logger",
     "notifications",
     "monitoring",
